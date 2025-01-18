@@ -6,17 +6,20 @@ from PyQt6.QtGui import QPainter, QColor, QPixmap
 from PyQt6.QtWidgets import QApplication, QWidget, QMessageBox
 from aqt import mw, gui_hooks
 from aqt.utils import showInfo
+from PyQt6.QtWidgets import QMenu
+from PyQt6.QtGui import QCursor
 
 
 class AnimalType(Enum):
-    PIG = ("豚", 100)
-    CHICKEN = ("鶏", 50)
-    COW = ("牛", 200)
-    EMPTY = ("空", 0)
+    PIG = ("豚", 100, "🐷")
+    CHICKEN = ("鶏", 50, "🐔")
+    COW = ("牛", 200, "🐮")
+    EMPTY = ("空", 0, "")
 
-    def __init__(self, label, price):
+    def __init__(self, label, price, emoji):
         self._label = label
         self._price = price
+        self._emoji = emoji
 
     @property
     def label(self):
@@ -26,22 +29,36 @@ class AnimalType(Enum):
     def price(self):
         return self._price
 
+    @property
+    def emoji(self):
+        return self._emoji
+
+
 
 class Animal:
     def __init__(self, animal_type: AnimalType):
         self.animal_type = animal_type
         self.growth = 0
-        self.max_growth = 100
+        self.max_growth = 150  # 最大成長率を150%に設定
+        self.is_dead = False   # 死亡フラグ
 
     def grow(self):
-        self.growth = min(self.growth + 5, self.max_growth)
+        if not self.is_dead:
+            self.growth = min(self.growth + 5, self.max_growth)
+            if self.growth >= self.max_growth:
+                self.is_dead = True
 
     def get_sale_price(self):
+        if self.is_dead:
+            return 0
         growth_multiplier = 1 + (self.growth / 100)
         return int(self.animal_type.price * growth_multiplier)
 
     def can_sell(self):
-        return self.growth >= 50
+        return not self.is_dead and self.growth >= 50
+
+    def get_cleanup_cost(self):
+        return int(self.animal_type.price * 0.5)  # 掃除費用は購入価格の半額
 
 
 class Field:
@@ -67,6 +84,7 @@ class GameWidget(QWidget):
         super().__init__(parent)
         self.initUI()
 
+
     def initUI(self):
         self.setWindowTitle("Ranch")
         self.setGeometry(100, 100, 800, 600)
@@ -91,6 +109,42 @@ class GameWidget(QWidget):
 
         # Ankiのフックを設定
         gui_hooks.reviewer_did_answer_card.append(self.called)
+        self.selected_animal_type = None
+
+    def show_animal_selection_dialog(self):
+        menu = QMenu(self)
+        for animal_type in AnimalType:
+            if animal_type != AnimalType.EMPTY:
+                action = menu.addAction(f"{animal_type.emoji} {animal_type.label} ({animal_type.price}円)")
+                action.setData(animal_type)
+
+        # メニューを表示
+        action = menu.exec(QCursor.pos())
+        if action:
+            return action.data()
+        return None
+
+    def try_cleanup_dead_animal(self, field):
+        if not field.animal or not field.animal.is_dead:
+            return
+
+        cleanup_cost = field.animal.get_cleanup_cost()
+        reply = QMessageBox.question(
+            self,
+            '死亡した動物の掃除',
+            f'この死亡した{field.animal.animal_type.label}を{cleanup_cost}円で掃除しますか？',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            if self.money >= cleanup_cost:
+                self.money -= cleanup_cost
+                field.remove_animal()
+                self.update()
+            else:
+                QMessageBox.warning(self, "掃除不可",
+                                  f"所持金が足りません！\n必要金額: {cleanup_cost}円")
+
 
     def cycle_animal_type(self):
         if self.current_animal_type == AnimalType.PIG:
@@ -212,10 +266,13 @@ class GameWidget(QWidget):
                         self.cell_size - 2 * padding
                     )
 
-                    # 成長度を表示
+                    # 死亡状態と成長度を表示
                     painter.setBrush(Qt.BrushStyle.NoBrush)
                     growth_text = f"{field.animal.growth}%"
-                    if field.animal.can_sell():
+                    if field.animal.is_dead:
+                        growth_text += " (死亡)"
+                        painter.setPen(QColor(255, 0, 0))  # 死亡時は赤字
+                    elif field.animal.can_sell():
                         growth_text += f" (売値: {field.animal.get_sale_price()}円)"
                     painter.drawText(
                         x * self.cell_size,
@@ -228,14 +285,12 @@ class GameWidget(QWidget):
                          f"選択中: {self.current_animal_type.label}")
 
     def mousePressEvent(self, event):
-        # Y座標を調整（80ピクセルのオフセットを考慮）
         x = int(event.position().x() // self.cell_size)
         y = int((event.position().y() - 80) // self.cell_size)
 
         if 0 <= x < 3 and 0 <= y < 3:
             field_number = y * 3 + x + 1
 
-            # ロックされたマスをクリックした場合
             if field_number > self.unlocked_fields:
                 self.try_unlock_field()
                 return
@@ -243,17 +298,23 @@ class GameWidget(QWidget):
             field = self.fields[y][x]
             if event.button() == Qt.MouseButton.LeftButton:
                 if field.animal is None:
-                    purchase_price = self.current_animal_type.price
-                    if self.money >= purchase_price:
-                        field.add_animal(Animal(self.current_animal_type))
-                        self.money -= purchase_price
-                        self.cycle_animal_type()
-                        self.update()
-                    else:
-                        QMessageBox.warning(self, "購入不可",
-                                            f"所持金が足りません！\n必要金額: {purchase_price}円")
+                    # 動物選択ダイアログを表示
+                    selected_type = self.show_animal_selection_dialog()
+                    if selected_type:
+                        purchase_price = selected_type.price
+                        if self.money >= purchase_price:
+                            field.add_animal(Animal(selected_type))
+                            self.money -= purchase_price
+                            self.update()
+                        else:
+                            QMessageBox.warning(self, "購入不可",
+                                                f"所持金が足りません！\n必要金額: {purchase_price}円")
             elif event.button() == Qt.MouseButton.RightButton:
-                self.try_sell_animal(field)
+                if field.animal:
+                    if field.animal.is_dead:
+                        self.try_cleanup_dead_animal(field)
+                    else:
+                        self.try_sell_animal(field)
 
     def called(self, reviewer, card, ease):
         # カードを回答したときの処理
