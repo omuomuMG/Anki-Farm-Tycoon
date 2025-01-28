@@ -1,4 +1,5 @@
 import os
+import random
 import sys
 from enum import Enum
 from PyQt6.QtCore import Qt, QTimer
@@ -11,7 +12,6 @@ from PyQt6.QtGui import QCursor
 from PyQt6.QtGui import QFont
 
 def get_addon_dir():
-    """アドオンのディレクトリパスを取得"""
     return os.path.dirname(os.path.abspath(__file__))
 
 
@@ -44,8 +44,28 @@ class Animal:
     def __init__(self, animal_type: AnimalType):
         self.animal_type = animal_type
         self.growth = 0
-        self.max_growth = 150  # 最大成長率を150%に設定
-        self.is_dead = False   # 死亡フラグ
+        self.max_growth = 150
+        self.is_dead = False
+        self.has_product = False  # 卵やミルクの有無を追跡
+
+    def produce(self) -> int:
+        """生産物（卵・ミルク）を生成し、収益を返す"""
+        if self.is_dead:
+            return 0
+
+        if self.animal_type == AnimalType.CHICKEN:
+            # 鶏の卵生産（10%の確率）
+            if random.random() < 0.10:
+                self.has_product = True
+                return random.randint(5, 10)  # 5-10円の収入
+
+        elif self.animal_type == AnimalType.COW:
+            # 牛のミルク生産（2%の確率）
+            if random.random() < 0.02:
+                self.has_product = True
+                return 50  # 50円の収入
+
+        return 0
 
     def grow(self):
         if not self.is_dead:
@@ -139,6 +159,12 @@ class GameWidget(QWidget):
             AnimalType.PIG: QPixmap(os.path.join(resources_dir, "buta.svg")),
             AnimalType.CHICKEN: QPixmap(os.path.join(resources_dir, "niwatori_male.svg")),
             AnimalType.COW: QPixmap(os.path.join(resources_dir, "ushi_red_tsuno.svg"))
+        }
+
+        #生産物の画像
+        self.product_images = {
+            AnimalType.CHICKEN: QPixmap(os.path.join(resources_dir, "egg.svg")),
+            AnimalType.COW: QPixmap(os.path.join(resources_dir, "milk.svg"))
         }
 
     def show_animal_selection_dialog(self):
@@ -315,6 +341,18 @@ class GameWidget(QWidget):
                             animal_image
                         )
 
+                        if field.animal.has_product and field.animal.animal_type in [AnimalType.CHICKEN,
+                                                                                     AnimalType.COW]:
+                            product_image = self.product_images[field.animal.animal_type]
+                            product_size = min(self.cell_size // 4, product_image.width())
+                            painter.drawPixmap(
+                                pos_x + self.cell_size - product_size - 5,  # 右下に配置
+                                pos_y + self.cell_size - product_size - 5,
+                                product_size,
+                                product_size,
+                                product_image
+                            )
+
                         # 成長率と状態を表示
                         painter.setBrush(Qt.BrushStyle.NoBrush)
                         growth_text = f"{field.animal.growth}%"
@@ -378,11 +416,24 @@ class GameWidget(QWidget):
                         self.try_sell_animal(field)
 
     def called(self, reviewer, card, ease):
+        total_production = 0
         # カードを回答したときの処理
         for row in self.fields:
             for field in row:
                 if field.animal:
+                    # 動物を成長させる
                     field.animal.grow()
+                    # 前回の生産物をリセット
+                    field.animal.has_product = False
+                    # 新しい生産物を生成
+                    production = field.animal.produce()
+                    if production > 0:
+                        total_production += production
+
+        # 生産による収入を加算
+        if total_production > 0:
+            self.money += total_production
+
         self.update()
 
 def game_window():
