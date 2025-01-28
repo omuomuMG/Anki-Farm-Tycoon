@@ -1,3 +1,4 @@
+import json
 import os
 import random
 import sys
@@ -107,42 +108,132 @@ class Field:
 class GameWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.save_file_path = os.path.join(get_addon_dir(), "game_save.json")
         self.initUI()
+        self.load_game()
         self.load_images()
 
+    def save_game(self):
+        """ゲームの状態をJSONファイルに保存"""
+        save_data = {
+            "money": self.money,
+            "unlocked_fields": self.unlocked_fields,
+            "stats": {
+                animal_type.name: stats
+                for animal_type, stats in self.stats.items()
+                if animal_type != AnimalType.EMPTY
+            },
+            "fields": [
+                [
+                    {
+                        "x": field.x,
+                        "y": field.y,
+                        "animal": {
+                            "type": field.animal.animal_type.name,
+                            "growth": field.animal.growth,
+                            "is_dead": field.animal.is_dead,
+                            "has_product": field.animal.has_product,
+                            "max_growth": field.animal.max_growth
+                        } if field.animal else None
+                    }
+                    for field in row
+                ]
+                for row in self.fields
+            ]
+        }
 
-    def initUI(self):
-        self.setWindowTitle("Ranch")
-        self.setGeometry(100, 100, 800, 600)
+        try:
+            with open(self.save_file_path, 'w', encoding='utf-8') as f:
+                json.dump(save_data, f, ensure_ascii=False, indent=2)
+            print(f"ゲームを保存しました: {self.save_file_path}")  # デバッグ用
+        except Exception as e:
+            print(f"セーブデータの保存に失敗しました: {e}")
 
-        # 所持金を初期化
+    def load_game(self):
+        """JSONファイルからゲームの状態を読み込む"""
+        try:
+            if os.path.exists(self.save_file_path):
+                with open(self.save_file_path, 'r', encoding='utf-8') as f:
+                    save_data = json.load(f)
+
+                # 基本データの読み込み
+                self.money = save_data.get("money", 1000)
+                self.unlocked_fields = save_data.get("unlocked_fields", 1)
+
+                # 統計情報の読み込み
+                saved_stats = save_data.get("stats", {})
+                self.stats = {}
+                for animal_type in AnimalType:
+                    if animal_type != AnimalType.EMPTY:
+                        self.stats[animal_type] = saved_stats.get(
+                            animal_type.name,
+                            {"sold": 0, "cleaned": 0}
+                        )
+
+                # フィールドの読み込み
+                self.fields = []
+                saved_fields = save_data.get("fields", [])
+
+                for y, row in enumerate(saved_fields):
+                    field_row = []
+                    for x, field_data in enumerate(row):
+                        # フィールドの作成
+                        field = Field(field_data["x"], field_data["y"])
+
+                        # 動物データの読み込み
+                        animal_data = field_data.get("animal")
+                        if animal_data:
+                            # 動物の種類を文字列から列挙型に変換
+                            animal_type = AnimalType[animal_data["type"]]
+                            # 動物インスタンスの作成
+                            animal = Animal(animal_type)
+                            # 動物の状態を復元
+                            animal.growth = animal_data["growth"]
+                            animal.is_dead = animal_data["is_dead"]
+                            animal.has_product = animal_data["has_product"]
+                            animal.max_growth = animal_data["max_growth"]
+                            # フィールドに動物を設定
+                            field.animal = animal
+
+                        field_row.append(field)
+                    self.fields.append(field_row)
+
+            else:
+                # セーブデータがない場合は初期状態を設定
+                self._initialize_new_game()
+
+        except Exception as e:
+            print(f"セーブデータの読み込みに失敗しました: {e}")
+            # エラー時は初期状態で開始
+            self._initialize_new_game()
+
+    def _initialize_new_game(self):
+        """新規ゲームの初期化"""
         self.money = 1000
-
-        # フィールドの初期化
+        self.unlocked_fields = 1
+        self.stats = {
+            AnimalType.PIG: {"sold": 0, "cleaned": 0},
+            AnimalType.CHICKEN: {"sold": 0, "cleaned": 0},
+            AnimalType.COW: {"sold": 0, "cleaned": 0}
+        }
         self.fields = []
-        self.cell_size = 100
-        self.unlocked_fields = 1  # 最初は1マスだけ解放
-
-        # 3x3のフィールドを作成
         for y in range(3):
             row = []
             for x in range(3):
                 row.append(Field(x, y))
             self.fields.append(row)
 
-        # 現在選択中の動物タイプ
-        self.current_animal_type = AnimalType.PIG
+    def initUI(self):
+        self.setWindowTitle("Ranch")
+        self.setGeometry(100, 100, 800, 600)
 
-        # 統計情報の追加
-        self.stats = {
-            AnimalType.PIG: {"sold": 0, "cleaned": 0},
-            AnimalType.CHICKEN: {"sold": 0, "cleaned": 0},
-            AnimalType.COW: {"sold": 0, "cleaned": 0}
-        }
+        # 基本的な設定のみを行う
+        self.cell_size = 100
+        self.current_animal_type = AnimalType.PIG
+        self.selected_animal_type = None
 
         # Ankiのフックを設定
         gui_hooks.reviewer_did_answer_card.append(self.called)
-        self.selected_animal_type = None
 
     def load_images(self):
         """画像リソースを読み込む"""
@@ -200,6 +291,7 @@ class GameWidget(QWidget):
                 self.stats[animal_type]["cleaned"] += 1
                 field.remove_animal()
                 self.update()
+                self.save_game()
             else:
                 QMessageBox.warning(self, "掃除不可",
                                   f"所持金が足りません！\n必要金額: {cleanup_cost}円")
@@ -239,6 +331,7 @@ class GameWidget(QWidget):
             self.money -= price
             self.unlocked_fields += 1
             self.update()
+            self.save_game()
             return True
         return False
 
@@ -273,6 +366,7 @@ class GameWidget(QWidget):
             self.stats[animal_type]["sold"] += 1
             field.remove_animal()
             self.update()
+            self.save_game()
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -405,6 +499,7 @@ class GameWidget(QWidget):
                             field.add_animal(Animal(selected_type))
                             self.money -= purchase_price
                             self.update()
+                            self.save_game()
                         else:
                             QMessageBox.warning(self, "購入不可",
                                               f"所持金が足りません！\n必要金額: {purchase_price}円")
@@ -435,6 +530,7 @@ class GameWidget(QWidget):
             self.money += total_production
 
         self.update()
+        self.save_game()
 
 def game_window():
     mw.myWidget = widget = GameWidget()
