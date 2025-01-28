@@ -4,23 +4,21 @@ import random
 import sys
 from enum import Enum
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QPainter, QColor, QPixmap
+from PyQt6.QtGui import QPainter, QColor, QPixmap, QFont
 from PyQt6.QtWidgets import QApplication, QWidget, QMessageBox
 from aqt import mw, gui_hooks
 from aqt.utils import showInfo
 from PyQt6.QtWidgets import QMenu
 from PyQt6.QtGui import QCursor
-from PyQt6.QtGui import QFont
 
 def get_addon_dir():
     return os.path.dirname(os.path.abspath(__file__))
 
-
 class AnimalType(Enum):
-    PIG = ("豚", 100, "🐷")
-    CHICKEN = ("鶏", 50, "🐔")
-    COW = ("牛", 200, "🐮")
-    EMPTY = ("空", 0, "")
+    PIG = ("Pig", 100, "🐷")
+    CHICKEN = ("Chicken", 50, "🐔")
+    COW = ("Cow", 200, "🐮")
+    EMPTY = ("Empty", 0, "")
 
     def __init__(self, label, price, emoji):
         self._label = label
@@ -39,32 +37,30 @@ class AnimalType(Enum):
     def emoji(self):
         return self._emoji
 
-
-
 class Animal:
     def __init__(self, animal_type: AnimalType):
         self.animal_type = animal_type
         self.growth = 0
         self.max_growth = 150
         self.is_dead = False
-        self.has_product = False  # 卵やミルクの有無を追跡
+        self.has_product = False
 
     def produce(self) -> int:
-        """生産物（卵・ミルク）を生成し、収益を返す"""
+        """Generate products (eggs/milk) and return earnings"""
         if self.is_dead:
             return 0
 
         if self.animal_type == AnimalType.CHICKEN:
-            # 鶏の卵生産（10%の確率）
+            # Chicken egg production (10% chance)
             if random.random() < 0.10:
                 self.has_product = True
-                return random.randint(5, 10)  # 5-10円の収入
+                return random.randint(5, 10)
 
         elif self.animal_type == AnimalType.COW:
-            # 牛のミルク生産（2%の確率）
+            # Cow milk production (2% chance)
             if random.random() < 0.02:
                 self.has_product = True
-                return 50  # 50円の収入
+                return 50
 
         return 0
 
@@ -84,8 +80,7 @@ class Animal:
         return not self.is_dead and self.growth >= 50
 
     def get_cleanup_cost(self):
-        return int(self.animal_type.price * 0.5)  # 掃除費用は購入価格の半額
-
+        return int(self.animal_type.price * 0.5)
 
 class Field:
     def __init__(self, x, y):
@@ -109,12 +104,67 @@ class GameWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.save_file_path = os.path.join(get_addon_dir(), "game_save.json")
-        self.initUI()
+
+        # Basic settings
+        self.cell_size = 100
+        self.current_animal_type = AnimalType.PIG
+        self.selected_animal_type = None
+
+        # Set window size
+        stats_panel_width = 250
+        window_width = stats_panel_width + (self.cell_size * 4)
+        window_height = self.cell_size * 4
+        self.setGeometry(100, 100, window_width, window_height)
+        self.setWindowTitle("Ranch")
+
+        # Load game data and images
         self.load_game()
         self.load_images()
 
+        # Set up Anki hook
+        gui_hooks.reviewer_did_answer_card.append(self.called)
+
+    def _initialize_new_game(self):
+        """Initialize new game"""
+        self.money = 1000
+        self.unlocked_fields = 1
+        self.stats = {
+            AnimalType.PIG: {"sold": 0, "cleaned": 0},
+            AnimalType.CHICKEN: {"sold": 0, "cleaned": 0},
+            AnimalType.COW: {"sold": 0, "cleaned": 0}
+        }
+        self.fields = []
+        for y in range(4):
+            row = []
+            for x in range(4):
+                row.append(Field(x, y))
+            self.fields.append(row)
+
+    def load_images(self):
+        """Load image resources"""
+        addon_dir = get_addon_dir()
+        resources_dir = os.path.join(addon_dir, "Resources")
+
+        # Field tile images
+        self.tile_image = QPixmap(os.path.join(resources_dir, "maptile_sogen_01.svg"))
+        self.locked_tile_image = QPixmap(os.path.join(resources_dir, "maptile_sogen_hana_01.svg"))
+        self.stats_bg_image = QPixmap(os.path.join(resources_dir, "maptile_sogen_01.svg"))
+
+        # Animal images
+        self.animal_images = {
+            AnimalType.PIG: QPixmap(os.path.join(resources_dir, "buta.svg")),
+            AnimalType.CHICKEN: QPixmap(os.path.join(resources_dir, "niwatori_male.svg")),
+            AnimalType.COW: QPixmap(os.path.join(resources_dir, "ushi_red_tsuno.svg"))
+        }
+
+        # Product images
+        self.product_images = {
+            AnimalType.CHICKEN: QPixmap(os.path.join(resources_dir, "egg.svg")),
+            AnimalType.COW: QPixmap(os.path.join(resources_dir, "milk.svg"))
+        }
+
     def save_game(self):
-        """ゲームの状態をJSONファイルに保存"""
+        """Save game state to JSON file"""
         save_data = {
             "money": self.money,
             "unlocked_fields": self.unlocked_fields,
@@ -145,22 +195,23 @@ class GameWidget(QWidget):
         try:
             with open(self.save_file_path, 'w', encoding='utf-8') as f:
                 json.dump(save_data, f, ensure_ascii=False, indent=2)
-            print(f"ゲームを保存しました: {self.save_file_path}")  # デバッグ用
+            print(f"Game saved: {self.save_file_path}")
         except Exception as e:
-            print(f"セーブデータの保存に失敗しました: {e}")
+            print(f"Failed to save game: {e}")
 
     def load_game(self):
-        """JSONファイルからゲームの状態を読み込む"""
+        """Load game state from JSON file"""
         try:
             if os.path.exists(self.save_file_path):
+                print(f"Loading save data: {self.save_file_path}")
                 with open(self.save_file_path, 'r', encoding='utf-8') as f:
                     save_data = json.load(f)
 
-                # 基本データの読み込み
+                # Load basic data
                 self.money = save_data.get("money", 1000)
                 self.unlocked_fields = save_data.get("unlocked_fields", 1)
 
-                # 統計情報の読み込み
+                # Load statistics
                 saved_stats = save_data.get("stats", {})
                 self.stats = {}
                 for animal_type in AnimalType:
@@ -170,102 +221,47 @@ class GameWidget(QWidget):
                             {"sold": 0, "cleaned": 0}
                         )
 
-                # フィールドの読み込み
+                # Load fields
                 self.fields = []
                 saved_fields = save_data.get("fields", [])
 
-                for y, row in enumerate(saved_fields):
+                for y in range(4):
                     field_row = []
-                    for x, field_data in enumerate(row):
-                        # フィールドの作成
-                        field = Field(field_data["x"], field_data["y"])
+                    for x in range(4):
+                        if y < len(saved_fields) and x < len(saved_fields[y]):
+                            field_data = saved_fields[y][x]
+                            field = Field(field_data["x"], field_data["y"])
 
-                        # 動物データの読み込み
-                        animal_data = field_data.get("animal")
-                        if animal_data:
-                            # 動物の種類を文字列から列挙型に変換
-                            animal_type = AnimalType[animal_data["type"]]
-                            # 動物インスタンスの作成
-                            animal = Animal(animal_type)
-                            # 動物の状態を復元
-                            animal.growth = animal_data["growth"]
-                            animal.is_dead = animal_data["is_dead"]
-                            animal.has_product = animal_data["has_product"]
-                            animal.max_growth = animal_data["max_growth"]
-                            # フィールドに動物を設定
-                            field.animal = animal
-
+                            animal_data = field_data.get("animal")
+                            if animal_data:
+                                animal_type = AnimalType[animal_data["type"]]
+                                animal = Animal(animal_type)
+                                animal.growth = animal_data["growth"]
+                                animal.is_dead = animal_data["is_dead"]
+                                animal.has_product = animal_data["has_product"]
+                                animal.max_growth = animal_data["max_growth"]
+                                field.animal = animal
+                        else:
+                            field = Field(x, y)
                         field_row.append(field)
                     self.fields.append(field_row)
 
             else:
-                # セーブデータがない場合は初期状態を設定
+                print("No save data found, starting new game")
                 self._initialize_new_game()
 
         except Exception as e:
-            print(f"セーブデータの読み込みに失敗しました: {e}")
-            # エラー時は初期状態で開始
+            print(f"Failed to load save data: {e}")
             self._initialize_new_game()
-
-    def _initialize_new_game(self):
-        """新規ゲームの初期化"""
-        self.money = 1000
-        self.unlocked_fields = 1
-        self.stats = {
-            AnimalType.PIG: {"sold": 0, "cleaned": 0},
-            AnimalType.CHICKEN: {"sold": 0, "cleaned": 0},
-            AnimalType.COW: {"sold": 0, "cleaned": 0}
-        }
-        self.fields = []
-        for y in range(3):
-            row = []
-            for x in range(3):
-                row.append(Field(x, y))
-            self.fields.append(row)
-
-    def initUI(self):
-        self.setWindowTitle("Ranch")
-        self.setGeometry(100, 100, 800, 600)
-
-        # 基本的な設定のみを行う
-        self.cell_size = 100
-        self.current_animal_type = AnimalType.PIG
-        self.selected_animal_type = None
-
-        # Ankiのフックを設定
-        gui_hooks.reviewer_did_answer_card.append(self.called)
-
-    def load_images(self):
-        """画像リソースを読み込む"""
-        # アドオンのディレクトリパスを取得
-        addon_dir = get_addon_dir()
-        resources_dir = os.path.join(addon_dir, "Resources")
-
-        # フィールドタイル画像
-        self.tile_image = QPixmap(os.path.join(resources_dir, "maptile_sogen_01.svg"))
-        self.locked_tile_image = QPixmap(os.path.join(resources_dir, "maptile_sogen_hana_01.svg"))
-
-        # 動物の画像
-        self.animal_images = {
-            AnimalType.PIG: QPixmap(os.path.join(resources_dir, "buta.svg")),
-            AnimalType.CHICKEN: QPixmap(os.path.join(resources_dir, "niwatori_male.svg")),
-            AnimalType.COW: QPixmap(os.path.join(resources_dir, "ushi_red_tsuno.svg"))
-        }
-
-        #生産物の画像
-        self.product_images = {
-            AnimalType.CHICKEN: QPixmap(os.path.join(resources_dir, "egg.svg")),
-            AnimalType.COW: QPixmap(os.path.join(resources_dir, "milk.svg"))
-        }
 
     def show_animal_selection_dialog(self):
         menu = QMenu(self)
         for animal_type in AnimalType:
             if animal_type != AnimalType.EMPTY:
-                action = menu.addAction(f"{animal_type.emoji} {animal_type.label} ({animal_type.price}円)")
+                action = menu.addAction(
+                    f"{animal_type.emoji} {animal_type.label} ({animal_type.price} coins)")
                 action.setData(animal_type)
 
-        # メニューを表示
         action = menu.exec(QCursor.pos())
         if action:
             return action.data()
@@ -279,53 +275,42 @@ class GameWidget(QWidget):
         animal_type = field.animal.animal_type
         reply = QMessageBox.question(
             self,
-            '死亡した動物の掃除',
-            f'この死亡した{animal_type.label}を{cleanup_cost}円で掃除しますか？',
+            'Clean up dead animal',
+            f'Do you want to clean up this dead {animal_type.label} for {cleanup_cost} coins?',
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
 
         if reply == QMessageBox.StandardButton.Yes:
             if self.money >= cleanup_cost:
                 self.money -= cleanup_cost
-                # 掃除数を増やす
                 self.stats[animal_type]["cleaned"] += 1
                 field.remove_animal()
                 self.update()
                 self.save_game()
             else:
-                QMessageBox.warning(self, "掃除不可",
-                                  f"所持金が足りません！\n必要金額: {cleanup_cost}円")
-
-    def cycle_animal_type(self):
-        if self.current_animal_type == AnimalType.PIG:
-            self.current_animal_type = AnimalType.CHICKEN
-        elif self.current_animal_type == AnimalType.CHICKEN:
-            self.current_animal_type = AnimalType.COW
-        elif self.current_animal_type == AnimalType.COW:
-            self.current_animal_type = AnimalType.PIG
-
-    def get_field_price(self):
-        # 敷地の価格計算（指数関数的に上昇）
-        base_price = 500  # 基本価格
-        return int(base_price * (1.5 ** (self.unlocked_fields - 1)))
+                QMessageBox.warning(self, "Cannot Clean",
+                                    f"Not enough money!\nRequired: {cleanup_cost} coins")
 
     def can_unlock_field(self):
-        return self.unlocked_fields < 9  # 最大9マス
+        return self.unlocked_fields < 16
 
     def try_unlock_field(self):
         if not self.can_unlock_field():
-            QMessageBox.warning(self, "購入不可", "これ以上敷地を購入できません！")
+            QMessageBox.warning(self, "Cannot Buy", "No more plots available!")
             return False
 
         price = self.get_field_price()
         if self.money < price:
-            QMessageBox.warning(self, "購入不可", f"所持金が足りません！\n必要金額: {price}円")
+            QMessageBox.warning(self, "Cannot Buy",
+                                f"Not enough money!\nRequired: {price} coins")
             return False
 
-        reply = QMessageBox.question(self, '敷地を購入',
-                                   f'新しい敷地を{price}円で購入しますか？',
-                                   QMessageBox.StandardButton.Yes |
-                                   QMessageBox.StandardButton.No)
+        reply = QMessageBox.question(
+            self,
+            'Buy Plot',
+            f'Do you want to buy a new plot for {price} coins?',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
 
         if reply == QMessageBox.StandardButton.Yes:
             self.money -= price
@@ -335,34 +320,30 @@ class GameWidget(QWidget):
             return True
         return False
 
-    def get_animal_color(self, animal_type):
-        if animal_type == AnimalType.PIG:
-            return QColor(255, 192, 203)  # ピンク
-        elif animal_type == AnimalType.CHICKEN:
-            return QColor(255, 255, 0)  # 黄色
-        elif animal_type == AnimalType.COW:
-            return QColor(139, 69, 19)  # 茶色
-        return QColor(255, 255, 255)  # 白
+    def get_field_price(self):
+        base_price = 500
+        return int(base_price * (1.5 ** (self.unlocked_fields - 1)))
 
     def try_sell_animal(self, field):
         if not field.animal:
             return
 
         if not field.animal.can_sell():
-            QMessageBox.warning(self, "売却不可",
-                              "この動物はまだ売却できません。\n成長率が50%以上必要です。")
+            QMessageBox.warning(self, "Cannot Sell",
+                                "This animal cannot be sold yet.\nGrowth must be 50% or higher.")
             return
 
         price = field.animal.get_sale_price()
         animal_type = field.animal.animal_type
-        reply = QMessageBox.question(self, '動物を売る',
-                                   f'この{animal_type.label}を{price}円で売りますか？',
-                                   QMessageBox.StandardButton.Yes |
-                                   QMessageBox.StandardButton.No)
+        reply = QMessageBox.question(
+            self,
+            'Sell Animal',
+            f'Do you want to sell this {animal_type.label} for {price} coins?',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
 
         if reply == QMessageBox.StandardButton.Yes:
             self.money += price
-            # 出荷数を増やす
             self.stats[animal_type]["sold"] += 1
             field.remove_animal()
             self.update()
@@ -371,49 +352,85 @@ class GameWidget(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
 
-        # 所持金を表示
+        # Stats panel width
+        stats_panel_width = 250
+        field_height = self.cell_size * 4
+
+        # Draw wooden background for stats panel
+        painter.drawPixmap(
+            0, 0, stats_panel_width, self.height(),
+            self.stats_bg_image
+        )
+
+        # Add semi-transparent overlay
+        painter.fillRect(
+            0, 0, stats_panel_width, self.height(),
+            QColor(255, 255, 255, 100)
+        )
+
+        # Display money
         painter.setPen(QColor(0, 0, 0))
         font = painter.font()
-        font.setPointSize(14)
-        painter.setFont(font)
-        painter.drawText(10, 30, f"所持金: {self.money}円")
-
-        # 統計情報を表示
-        y_pos = 60
         font.setPointSize(12)
+        font.setBold(True)
         painter.setFont(font)
-        painter.drawText(10, y_pos, "統計情報:")
-        y_pos += 20
+        painter.drawText(10, 20, f"Money: {self.money} coins")
 
+        # Display statistics
+        y_pos = 40
+        font.setPointSize(11)
+        painter.setFont(font)
+        painter.drawText(10, y_pos, "Statistics:")
+        y_pos += 15
+
+        font.setBold(False)
+        painter.setFont(font)
         for animal_type in [AnimalType.PIG, AnimalType.CHICKEN, AnimalType.COW]:
             stats = self.stats[animal_type]
+
+            # Draw shadow
+            painter.setPen(QColor(0, 0, 0, 100))
+            painter.drawText(
+                11,
+                y_pos + 1,
+                f"{animal_type.emoji} {animal_type.label}: "
+                f"Sold: {stats['sold']}, "
+                f"Cleaned: {stats['cleaned']}"
+            )
+
+            # Draw main text
+            painter.setPen(QColor(0, 0, 0))
             painter.drawText(
                 10,
                 y_pos,
                 f"{animal_type.emoji} {animal_type.label}: "
-                f"出荷 {stats['sold']}匹, "
-                f"掃除 {stats['cleaned']}匹"
+                f"Sold: {stats['sold']}, "
+                f"Cleaned: {stats['cleaned']}"
             )
-            y_pos += 20
+            y_pos += 25
 
-        # 次の敷地の価格を表示
+        # Display next plot price
         if self.can_unlock_field():
             next_price = self.get_field_price()
-            painter.drawText(10, y_pos + 20, f"次の敷地の価格: {next_price}円")
+            y_pos += 10
+            painter.drawText(10, y_pos, "Next Plot Price:")
+            y_pos += 20
+            painter.drawText(10, y_pos, f"{next_price} coins")
 
-        # マスを描画
-        for y in range(3):
-            for x in range(3):
+        # Draw game field
+        field_start_x = stats_panel_width
+
+        # Draw fields
+        for y in range(4):
+            for x in range(4):
                 field = self.fields[y][x]
-                field_number = y * 3 + x + 1
+                field_number = y * 4 + x + 1
 
-                # マスの位置を計算
-                pos_x = x * self.cell_size
-                pos_y = y * self.cell_size + 80
+                pos_x = field_start_x + (x * self.cell_size)
+                pos_y = y * self.cell_size
 
-                # フィールドタイルを描画
                 if field_number <= self.unlocked_fields:
-                    # 解放済みタイル
+                    # Draw unlocked tile
                     painter.drawPixmap(
                         pos_x,
                         pos_y,
@@ -422,11 +439,10 @@ class GameWidget(QWidget):
                         self.tile_image
                     )
 
-                    # 動物がいる場合は動物を描画
                     if field.animal:
+                        # Draw animal
                         animal_image = self.animal_images[field.animal.animal_type]
-                        # 動物画像をタイルの中央に配置
-                        animal_size = min(self.cell_size - 20, animal_image.width())
+                        animal_size = min(self.cell_size - 25, animal_image.width())
                         painter.drawPixmap(
                             pos_x + (self.cell_size - animal_size) // 2,
                             pos_y + (self.cell_size - animal_size) // 2,
@@ -435,26 +451,28 @@ class GameWidget(QWidget):
                             animal_image
                         )
 
-                        if field.animal.has_product and field.animal.animal_type in [AnimalType.CHICKEN,
-                                                                                     AnimalType.COW]:
+                        # Draw product if any
+                        if field.animal.has_product and field.animal.animal_type in [
+                            AnimalType.CHICKEN, AnimalType.COW
+                        ]:
                             product_image = self.product_images[field.animal.animal_type]
                             product_size = min(self.cell_size // 4, product_image.width())
                             painter.drawPixmap(
-                                pos_x + self.cell_size - product_size - 5,  # 右下に配置
+                                pos_x + self.cell_size - product_size - 5,
                                 pos_y + self.cell_size - product_size - 5,
                                 product_size,
                                 product_size,
                                 product_image
                             )
 
-                        # 成長率と状態を表示
+                        # Display growth and status
                         painter.setBrush(Qt.BrushStyle.NoBrush)
                         growth_text = f"{field.animal.growth}%"
                         if field.animal.is_dead:
-                            growth_text += " (死亡)"
+                            growth_text += " (Dead)"
                             painter.setPen(QColor(255, 0, 0))
                         elif field.animal.can_sell():
-                            growth_text += f" (売値: {field.animal.get_sale_price()}円)"
+                            growth_text += f" (Value: {field.animal.get_sale_price()} coins)"
                             painter.setPen(QColor(0, 0, 0))
                         painter.drawText(
                             pos_x,
@@ -462,7 +480,7 @@ class GameWidget(QWidget):
                             growth_text
                         )
                 else:
-                    # ロックされたタイル
+                    # Draw locked tile
                     painter.drawPixmap(
                         pos_x,
                         pos_y,
@@ -470,19 +488,24 @@ class GameWidget(QWidget):
                         self.cell_size,
                         self.locked_tile_image
                     )
-                    # ロック表示
+
+                    font = painter.font()
+                    font.setPointSize(24)
+                    painter.setFont(font)
                     painter.drawText(
-                        pos_x + self.cell_size // 2 - 10,
-                        pos_y + self.cell_size // 2,
+                        pos_x + self.cell_size // 2 - 20,
+                        pos_y + self.cell_size // 2 + 10,
                         "🔒"
                     )
 
     def mousePressEvent(self, event):
-        x = int(event.position().x() // self.cell_size)
-        y = int((event.position().y() - 100) // self.cell_size)
+        stats_panel_width = 250
+        adjusted_x = event.position().x() - stats_panel_width
+        x = int(adjusted_x // self.cell_size)
+        y = int(event.position().y() // self.cell_size)
 
-        if 0 <= x < 3 and 0 <= y < 3:
-            field_number = y * 3 + x + 1
+        if 0 <= x < 4 and 0 <= y < 4:
+            field_number = y * 4 + x + 1
 
             if field_number > self.unlocked_fields:
                 self.try_unlock_field()
@@ -491,7 +514,6 @@ class GameWidget(QWidget):
             field = self.fields[y][x]
             if event.button() == Qt.MouseButton.LeftButton:
                 if field.animal is None:
-                    # 動物選択ダイアログを表示
                     selected_type = self.show_animal_selection_dialog()
                     if selected_type:
                         purchase_price = selected_type.price
@@ -501,8 +523,8 @@ class GameWidget(QWidget):
                             self.update()
                             self.save_game()
                         else:
-                            QMessageBox.warning(self, "購入不可",
-                                              f"所持金が足りません！\n必要金額: {purchase_price}円")
+                            QMessageBox.warning(self, "Cannot Buy",
+                                                f"Not enough money!\nRequired: {purchase_price} coins")
             elif event.button() == Qt.MouseButton.RightButton:
                 if field.animal:
                     if field.animal.is_dead:
@@ -512,25 +534,21 @@ class GameWidget(QWidget):
 
     def called(self, reviewer, card, ease):
         total_production = 0
-        # カードを回答したときの処理
         for row in self.fields:
             for field in row:
                 if field.animal:
-                    # 動物を成長させる
                     field.animal.grow()
-                    # 前回の生産物をリセット
                     field.animal.has_product = False
-                    # 新しい生産物を生成
                     production = field.animal.produce()
                     if production > 0:
                         total_production += production
 
-        # 生産による収入を加算
         if total_production > 0:
             self.money += total_production
 
         self.update()
         self.save_game()
+
 
 def game_window():
     mw.myWidget = widget = GameWidget()
