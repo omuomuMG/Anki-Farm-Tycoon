@@ -15,9 +15,9 @@ def get_addon_dir():
     return os.path.dirname(os.path.abspath(__file__))
 
 class AnimalType(Enum):
-    PIG = ("Pig", 100, "🐷")
-    CHICKEN = ("Chicken", 50, "🐔")
-    COW = ("Cow", 200, "🐮")
+    PIG = ("Pig", 150, "🐷")
+    CHICKEN = ("Chicken", 80, "🐔")
+    COW = ("Cow", 300, "🐮")
     EMPTY = ("Empty", 0, "")
 
     def __init__(self, label, price, emoji):
@@ -66,7 +66,14 @@ class Animal:
 
     def grow(self):
         if not self.is_dead:
-            self.growth = min(self.growth + random.randint(0,3), self.max_growth)
+            # 動物タイプごとに異なる成長率
+            growth_rates = {
+                AnimalType.CHICKEN: 7,
+                AnimalType.PIG: 5,
+                AnimalType.COW: 3
+            }
+            growth_rate = growth_rates[self.animal_type]
+            self.growth = min(self.growth + growth_rate, self.max_growth)
             if self.growth >= self.max_growth:
                 self.is_dead = True
 
@@ -149,6 +156,7 @@ class GameWidget(QWidget):
         self.tile_image = QPixmap(os.path.join(resources_dir, "maptile_sogen_01.svg"))
         self.locked_tile_image = QPixmap(os.path.join(resources_dir, "maptile_sogen_hana_01.svg"))
         self.stats_bg_image = QPixmap(os.path.join(resources_dir, "maptile_sogen_01.svg"))
+        self.grave_image = QPixmap(os.path.join(resources_dir, "grave.svg"))
 
         # Animal images
         self.animal_images = {
@@ -440,45 +448,62 @@ class GameWidget(QWidget):
                     )
 
                     if field.animal:
-                        # Draw animal
-                        animal_image = self.animal_images[field.animal.animal_type]
-                        animal_size = min(self.cell_size - 25, animal_image.width())
-                        painter.drawPixmap(
-                            pos_x + (self.cell_size - animal_size) // 2,
-                            pos_y + (self.cell_size - animal_size) // 2,
-                            animal_size,
-                            animal_size,
-                            animal_image
-                        )
+                        # 動物の描画部分を修正
+                        if field.animal:
+                            if field.animal.is_dead:
+                                # 死亡した動物の場合、お墓を表示
+                                grave_size = min(self.cell_size - 20, self.grave_image.width())
+                                painter.drawPixmap(
+                                    pos_x + (self.cell_size - grave_size) // 2,
+                                    pos_y + (self.cell_size - grave_size) // 2,
+                                    grave_size,
+                                    grave_size,
+                                    self.grave_image
+                                )
+                                # 死亡テキストを表示（赤色で）
+                                painter.setPen(QColor(255, 0, 0))
+                                painter.drawText(
+                                    pos_x,
+                                    pos_y + self.cell_size - 5,
+                                    f"Dead ({field.animal.animal_type.label})"
+                                )
+                            else:
+                                # 生きている動物の通常表示
+                                animal_image = self.animal_images[field.animal.animal_type]
+                                animal_size = min(self.cell_size - 10, animal_image.width())
+                                painter.drawPixmap(
+                                    pos_x + (self.cell_size - animal_size) // 2,
+                                    pos_y + (self.cell_size - animal_size) // 2,
+                                    animal_size,
+                                    animal_size,
+                                    animal_image
+                                )
 
-                        # Draw product if any
-                        if field.animal.has_product and field.animal.animal_type in [
-                            AnimalType.CHICKEN, AnimalType.COW
-                        ]:
-                            product_image = self.product_images[field.animal.animal_type]
-                            product_size = min(self.cell_size // 4, product_image.width())
-                            painter.drawPixmap(
-                                pos_x + self.cell_size - product_size - 5,
-                                pos_y + self.cell_size - product_size - 5,
-                                product_size,
-                                product_size,
-                                product_image
-                            )
+                                # 生産物の表示（既存のコード）
+                                if field.animal.has_product and field.animal.animal_type in [
+                                    AnimalType.CHICKEN, AnimalType.COW
+                                ]:
+                                    product_image = self.product_images[field.animal.animal_type]
+                                    product_size = min(self.cell_size // 4, product_image.width())
+                                    painter.drawPixmap(
+                                        pos_x + self.cell_size - product_size - 5,
+                                        pos_y + self.cell_size - product_size - 5,
+                                        product_size,
+                                        product_size,
+                                        product_image
+                                    )
 
-                        # Display growth and status
-                        painter.setBrush(Qt.BrushStyle.NoBrush)
-                        growth_text = f"{field.animal.growth}%"
-                        if field.animal.is_dead:
-                            growth_text += " (Dead)"
-                            painter.setPen(QColor(255, 0, 0))
-                        elif field.animal.can_sell():
-                            growth_text += f" (Value: {field.animal.get_sale_price()} coins)"
-                            painter.setPen(QColor(0, 0, 0))
-                        painter.drawText(
-                            pos_x,
-                            pos_y + self.cell_size - 5,
-                            growth_text
-                        )
+                                # 成長率表示（生きている動物のみ）
+                                painter.setBrush(Qt.BrushStyle.NoBrush)
+                                growth_text = f"{field.animal.growth}%"
+                                if field.animal.can_sell():
+                                    growth_text += f" (Value: {field.animal.get_sale_price()} coins)"
+                                painter.setPen(QColor(0, 0, 0))
+                                painter.drawText(
+                                    pos_x,
+                                    pos_y + self.cell_size - 5,
+                                    growth_text
+                                )
                 else:
                     # Draw locked tile
                     painter.drawPixmap(
@@ -533,15 +558,17 @@ class GameWidget(QWidget):
                         self.try_sell_animal(field)
 
     def called(self, reviewer, card, ease):
+        bonus_multiplier = 1.0
+        if ease > 2:
+            bonus_multiplier = 1.2
+
         total_production = 0
         for row in self.fields:
             for field in row:
                 if field.animal:
                     field.animal.grow()
-                    field.animal.has_product = False
-                    production = field.animal.produce()
-                    if production > 0:
-                        total_production += production
+                    production = field.animal.produce() * bonus_multiplier
+                    total_production += production
 
         if total_production > 0:
             self.money += total_production
@@ -553,3 +580,5 @@ class GameWidget(QWidget):
 def game_window():
     mw.myWidget = widget = GameWidget()
     widget.show()
+
+
