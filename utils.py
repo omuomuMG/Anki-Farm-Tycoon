@@ -15,8 +15,8 @@ def get_addon_dir():
     return os.path.dirname(os.path.abspath(__file__))
 
 class AnimalType(Enum):
-    PIG = ("Pig", 150, "🐷")
     CHICKEN = ("Chicken", 80, "🐔")
+    PIG = ("Pig", 150, "🐷")
     COW = ("Cow", 300, "🐮")
     EMPTY = ("Empty", 0, "")
 
@@ -275,29 +275,29 @@ class GameWidget(QWidget):
             return action.data()
         return None
 
-    def try_cleanup_dead_animal(self, field):
+    def try_remove_grave(self, field):
         if not field.animal or not field.animal.is_dead:
             return
 
-        cleanup_cost = field.animal.get_cleanup_cost()
+        remove_cost = field.animal.get_cleanup_cost()
         animal_type = field.animal.animal_type
         reply = QMessageBox.question(
             self,
-            'Clean up dead animal',
-            f'Do you want to clean up this dead {animal_type.label} for {cleanup_cost} coins?',
+            'Remove grave',
+            f'Do you want to say goodbye to {animal_type.label} and remove grave for {remove_cost} coins?',
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
 
         if reply == QMessageBox.StandardButton.Yes:
-            if self.money >= cleanup_cost:
-                self.money -= cleanup_cost
+            if self.money >= remove_cost:
+                self.money -= remove_cost
                 self.stats[animal_type]["dead"] += 1
                 field.remove_animal()
                 self.update()
                 self.save_game()
             else:
-                QMessageBox.warning(self, "Cannot Clean",
-                                    f"Not enough money!\nRequired: {cleanup_cost} coins")
+                QMessageBox.warning(self, "Cannot remove grave",
+                                    f"Not enough money!\nRequired: {remove_cost} coins")
 
     def can_unlock_field(self):
         return self.unlocked_fields < 16
@@ -553,7 +553,7 @@ class GameWidget(QWidget):
             elif event.button() == Qt.MouseButton.RightButton:
                 if field.animal:
                     if field.animal.is_dead:
-                        self.try_cleanup_dead_animal(field)
+                        self.try_remove_grave(field)
                     else:
                         self.try_sell_animal(field)
 
