@@ -66,7 +66,7 @@ class Animal:
 
     def grow(self):
         if not self.is_dead:
-            self.growth = min(self.growth + 5, self.max_growth)
+            self.growth = min(self.growth + random.randint(0,3), self.max_growth)
             if self.growth >= self.max_growth:
                 self.is_dead = True
 
@@ -129,9 +129,9 @@ class GameWidget(QWidget):
         self.money = 1000
         self.unlocked_fields = 1
         self.stats = {
-            AnimalType.PIG: {"sold": 0, "cleaned": 0},
-            AnimalType.CHICKEN: {"sold": 0, "cleaned": 0},
-            AnimalType.COW: {"sold": 0, "cleaned": 0}
+            AnimalType.PIG: {"sold": 0, "dead": 0},
+            AnimalType.CHICKEN: {"sold": 0, "dead": 0},
+            AnimalType.COW: {"sold": 0, "dead": 0}
         }
         self.fields = []
         for y in range(4):
@@ -218,7 +218,7 @@ class GameWidget(QWidget):
                     if animal_type != AnimalType.EMPTY:
                         self.stats[animal_type] = saved_stats.get(
                             animal_type.name,
-                            {"sold": 0, "cleaned": 0}
+                            {"sold": 0, "dead": 0}
                         )
 
                 # Load fields
@@ -283,7 +283,7 @@ class GameWidget(QWidget):
         if reply == QMessageBox.StandardButton.Yes:
             if self.money >= cleanup_cost:
                 self.money -= cleanup_cost
-                self.stats[animal_type]["cleaned"] += 1
+                self.stats[animal_type]["dead"] += 1
                 field.remove_animal()
                 self.update()
                 self.save_game()
@@ -371,14 +371,14 @@ class GameWidget(QWidget):
         # Display money
         painter.setPen(QColor(0, 0, 0))
         font = painter.font()
-        font.setPointSize(12)
+        font.setPointSize(19)
         font.setBold(True)
         painter.setFont(font)
         painter.drawText(10, 20, f"Money: {self.money} coins")
 
         # Display statistics
         y_pos = 40
-        font.setPointSize(11)
+        font.setPointSize(14)
         painter.setFont(font)
         painter.drawText(10, y_pos, "Statistics:")
         y_pos += 15
@@ -395,7 +395,7 @@ class GameWidget(QWidget):
                 y_pos + 1,
                 f"{animal_type.emoji} {animal_type.label}: "
                 f"Sold: {stats['sold']}, "
-                f"Cleaned: {stats['cleaned']}"
+                f"Dead: {stats['dead']}"
             )
 
             # Draw main text
@@ -405,7 +405,7 @@ class GameWidget(QWidget):
                 y_pos,
                 f"{animal_type.emoji} {animal_type.label}: "
                 f"Sold: {stats['sold']}, "
-                f"Cleaned: {stats['cleaned']}"
+                f"Dead: {stats['dead']}"
             )
             y_pos += 25
 
