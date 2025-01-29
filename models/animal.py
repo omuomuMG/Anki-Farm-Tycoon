@@ -18,7 +18,7 @@ class Animal:
     def grow(self):
         """Handle animal growth"""
         if not self.is_dead:
-            growth_increment = 5
+            growth_increment = random.randint(0,3)
             self.growth = min(self.growth + growth_increment, self.max_growth)
             print(f"Growing animal: {self.growth}%")
 
