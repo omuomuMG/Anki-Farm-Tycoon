@@ -1,8 +1,11 @@
-from PyQt6.QtWidgets import QWidget, QMenu, QMessageBox
+import json
+
+from PyQt6.QtWidgets import QWidget, QMenu, QMessageBox, QPushButton
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPainter, QColor, QCursor
 from aqt import gui_hooks
 
+from ..models.global_status import GlobalStats
 from ..models.animal import Animal
 from ..models.animal_type import AnimalType
 from ..models.field import Field
@@ -11,7 +14,7 @@ from ..utils.save_manager import SaveManager
 from ..gui.paint_handler import PaintHandler
 from ..constants import (
     CELL_SIZE, STATS_PANEL_WIDTH, GRID_SIZE,
-    INITIAL_MONEY, BASE_FIELD_PRICE, FIELD_PRICE_MULTIPLIER
+    INITIAL_MONEY, BASE_FIELD_PRICE, FIELD_PRICE_MULTIPLIER, ADDON_DIR
 )
 
 
@@ -28,6 +31,7 @@ class GameWidget(QWidget):
         # Initialize game state
         self.load_game()
 
+
         # Load resources
         self.resources = ResourceManager.load_all_resources()
 
@@ -36,19 +40,45 @@ class GameWidget(QWidget):
 
         gui_hooks.reviewer_did_answer_card.append(self.called)
 
+        # グローバル統計の初期化
+        self.global_stats = GlobalStats()
+        self.load_global_stats()
+
+        # リセットボタンの追加
+        self.reset_button = QPushButton("Reset Game", self)
+        self.reset_button.clicked.connect(self.reset_game)
+        self.reset_button.setStyleSheet("""
+            QPushButton {
+                background-color: #ff6b6b;
+                color: white;
+                border: none;
+                padding: 5px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #ff5252;
+            }
+        """)
+
+
+
     def load_game(self):
         """Load or initialize game state"""
         save_data = SaveManager.load_game()
+
+
 
         if save_data:
             self.load_saved_game(save_data)
         else:
             self.initialize_new_game()
 
+
     def initialize_new_game(self):
         """Initialize a new game state"""
         self.money = INITIAL_MONEY
         self.unlocked_fields = 1
+
         self.stats = {
             AnimalType.PIG: {"sold": 0, "cleaned": 0},
             AnimalType.CHICKEN: {"sold": 0, "cleaned": 0},
@@ -101,13 +131,15 @@ class GameWidget(QWidget):
                 row.append(field)
             self.fields.append(row)
 
+
+
     def save_game(self):
         """Save current game state"""
         game_state = {
             "money": self.money,
             "unlocked_fields": self.unlocked_fields,
             "stats": self.stats,
-            "fields": self.fields
+            "fields": self.fields,
         }
         SaveManager.save_game(game_state)
 
@@ -217,6 +249,54 @@ class GameWidget(QWidget):
             return True
         return False
 
+    def check_game_over(self):
+        if self.money < min(animal_type.price for animal_type in AnimalType
+                          if animal_type != AnimalType.EMPTY):
+            has_living_animals = any(
+                field.animal and not field.animal.is_dead
+                for row in self.fields
+                for field in row
+            )
+            if not has_living_animals:
+                self.show_game_over()
+
+    def show_game_over(self):
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Game Over")
+        msg.setText("You've run out of money and have no living animals!")
+        msg.setInformativeText(
+            f"Total animals sold: {self.global_stats.total_animals_sold}\n"
+            f"Total money earned: {self.global_stats.total_money_earned}\n"
+            f"Highest money achieved: {self.global_stats.highest_money}\n"
+            f"Days survived: {self.global_stats.current_day}\n"
+            f"Highest day reached: {self.global_stats.highest_day}\n"
+            "\nWould you like to reset the game?"
+        )
+        msg.setStandardButtons(QMessageBox.StandardButton.Yes |
+                               QMessageBox.StandardButton.No)
+
+        if msg.exec() == QMessageBox.StandardButton.Yes:
+            self.reset_game()
+        else:
+            self.close()
+
+    def reset_game(self):
+        self.save_global_stats()
+        self.money = INITIAL_MONEY
+        self.unlocked_fields = 1
+        self.fields = []
+        for y in range(GRID_SIZE):
+            row = []
+            for x in range(GRID_SIZE):
+                row.append(Field(x, y))
+            self.fields.append(row)
+
+        self.global_stats.current_day = 0
+        self.global_stats.answers_count = 0
+        self.update()
+        self.save_game()
+        self.initialize_new_game()
+
     def paintEvent(self, event):
         """Handle paint event"""
         painter = QPainter(self)
@@ -235,6 +315,8 @@ class GameWidget(QWidget):
 
         # Draw statistics
         self.paint_handler.draw_statistics(painter, self.stats, self.money)
+
+
 
 
         # Draw fields
@@ -270,6 +352,19 @@ class GameWidget(QWidget):
                         pos_y + CELL_SIZE // 2 + 10,
                         "🔒"
                     )
+
+                # グローバル統計情報の表示
+            y_pos = 150  # 適切な位置に調整
+            painter.drawText(10, y_pos, "Global Statistics:")
+            y_pos += 20
+            painter.drawText(10, y_pos, f"Highest Money: {self.global_stats.highest_money}")
+            y_pos += 20
+            painter.drawText(10, y_pos, f"Day: {self.global_stats.current_day}")
+            y_pos += 20
+            painter.drawText(10, y_pos, f"Highest Day: {self.global_stats.highest_day}")
+
+            # リセットボタンの位置を設定
+            self.reset_button.setGeometry(10, self.height() - 40, 100, 30)
 
     def mousePressEvent(self, event):
         """Handle mouse press events"""
@@ -329,5 +424,33 @@ class GameWidget(QWidget):
         if total_production > 0:
             self.money += total_production
 
+
+        self.global_stats.update_money_record(self.money)
+        self.global_stats.update_day_count()
+
+        # ゲームオーバーチェック
+        self.check_game_over()
+
         self.update()
         self.save_game()
+        self.save_global_stats()
+
+    def save_global_stats(self):
+        try:
+            with open(ADDON_DIR / "global_stats.json", 'w') as f:
+                json.dump(self.global_stats.to_dict(), f)
+        except Exception as e:
+            print(f"Error saving global stats: {e}")
+
+    def load_global_stats(self):
+        try:
+            stats_file = ADDON_DIR / "global_stats.json"
+            if stats_file.exists():
+                with open(stats_file, 'r') as f:
+                    data = json.load(f)
+                    self.global_stats = GlobalStats.from_dict(data)
+            else:
+                self.global_stats = GlobalStats()
+        except Exception as e:
+            print(f"Error loading global stats: {e}")
+            self.global_stats = GlobalStats()
