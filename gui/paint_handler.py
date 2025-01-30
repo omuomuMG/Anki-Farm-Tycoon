@@ -1,9 +1,7 @@
-# gui/paint_handler.py
-
-from PyQt6.QtGui import QPainter, QColor, QFont
+from PyQt6.QtGui import QPainter, QColor
 from PyQt6.QtCore import Qt
 from ..models.animal_type import AnimalType
-from ..constants import CELL_SIZE, STATS_PANEL_WIDTH
+from ..constants import CELL_SIZE
 
 
 class PaintHandler:
@@ -56,7 +54,7 @@ class PaintHandler:
             else:
                 # Draw living animal
                 animal_image = images['animals'][field.animal.animal_type]
-                animal_size = min(CELL_SIZE - 10, animal_image.width())
+                animal_size = min(CELL_SIZE - 20, animal_image.width())
                 painter.drawPixmap(
                     pos_x + (CELL_SIZE - animal_size) // 2,
                     pos_y + (CELL_SIZE - animal_size) // 2,

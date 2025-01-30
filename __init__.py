@@ -1,6 +1,4 @@
-from aqt import mw, gui_hooks
 from aqt.qt import *
-from aqt.utils import showInfo
 
 from aqt import mw
 from .gui.game_widget import GameWidget

@@ -1,9 +1,6 @@
 import json
-from pathlib import Path
 from ..constants import ADDON_DIR
-from ..models.animal import Animal
 from ..models.animal_type import AnimalType
-from ..models.field import Field
 
 class SaveManager:
     SAVE_FILE = ADDON_DIR / "game_save.json"
