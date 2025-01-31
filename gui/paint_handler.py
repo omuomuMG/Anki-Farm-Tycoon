@@ -64,7 +64,7 @@ class PaintHandler:
                 )
 
                 # Draw product if exists
-                if field.animal.has_product and field.animal.animal_type in [AnimalType.CHICKEN, AnimalType.COW]:
+                if field.animal.has_product and field.animal.animal_type in [AnimalType.CHICKEN, AnimalType.COW, AnimalType.PIG]:
                     product_image = images['products'][field.animal.animal_type]
                     product_size = min(CELL_SIZE // 4, product_image.width())
                     painter.drawPixmap(

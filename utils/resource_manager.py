@@ -17,7 +17,8 @@ class ResourceManager:
             },
             'products': {
                 AnimalType.CHICKEN: QPixmap(str(RESOURCES_DIR / "egg.svg")),
-                AnimalType.COW: QPixmap(str(RESOURCES_DIR / "milk.svg"))
+                AnimalType.COW: QPixmap(str(RESOURCES_DIR / "milk.svg")),
+                AnimalType.PIG:  QPixmap(str(RESOURCES_DIR / "pig_effect.svg"))
             }
         }
         return resources

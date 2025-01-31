@@ -1,4 +1,5 @@
 import json
+import random
 
 from PyQt6.QtWidgets import QWidget, QMenu, QMessageBox, QPushButton
 from PyQt6.QtCore import Qt
@@ -27,7 +28,7 @@ class GameWidget(QWidget):
         window_width = STATS_PANEL_WIDTH + (CELL_SIZE * GRID_SIZE)
         window_height = CELL_SIZE * GRID_SIZE
         self.setGeometry(100, 100, window_width, window_height)
-        self.setWindowTitle("Ranch")
+        self.setWindowTitle("Anki Ranch")
 
         # Initialize game state
         self.load_game()
@@ -41,7 +42,7 @@ class GameWidget(QWidget):
 
         gui_hooks.reviewer_did_answer_card.append(self.called)
 
-        # グローバル統計の初期化
+
         self.global_stats = GlobalStats()
         self.load_global_stats()
 
@@ -421,7 +422,29 @@ class GameWidget(QWidget):
 
     def called(self, reviewer, card, ease):
         """Handle Anki card review events"""
-        print("Card answered, updating animals...")
+        pig_products = []
+        for row in self.fields:
+            for field in row:
+                if (field.animal and
+                        field.animal.animal_type == AnimalType.PIG and
+                        field.animal.has_product):
+                    pig_products.append(field)
+
+        boosted_animals = []
+        for pig_field in pig_products:
+            available_animals = []
+            for row in self.fields:
+                for field in row:
+                    if (field.animal and
+                            not field.animal.is_dead and
+                            field != pig_field):
+                        available_animals.append(field)
+
+            if available_animals:
+                target_field = random.choice(available_animals)
+                boost_amount = random.randint(3, 7)
+                target_field.animal.growth_boost = boost_amount
+                boosted_animals.append((target_field, boost_amount))
 
         total_production = 0
         for row in self.fields:
@@ -442,6 +465,8 @@ class GameWidget(QWidget):
 
         if total_production > 0:
             self.money += total_production
+            self.global_stats.total_money_earned += total_production
+
 
 
         self.global_stats.update_money_record(self.money)
