@@ -2,9 +2,10 @@ import json
 
 from PyQt6.QtWidgets import QWidget, QMenu, QMessageBox, QPushButton
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPainter, QColor, QCursor
+from PyQt6.QtGui import QPainter, QColor, QCursor, QFont
 from aqt import gui_hooks
 
+from .statistics_window import StatisticsWindow
 from ..models.global_status import GlobalStats
 from ..models.animal import Animal
 from ..models.animal_type import AnimalType
@@ -44,7 +45,7 @@ class GameWidget(QWidget):
         self.global_stats = GlobalStats()
         self.load_global_stats()
 
-        # リセットボタンの追加
+        # ResetButton
         self.reset_button = QPushButton("Reset Game", self)
         self.reset_button.clicked.connect(self.reset_game)
         self.reset_button.setStyleSheet("""
@@ -60,14 +61,30 @@ class GameWidget(QWidget):
             }
         """)
 
+        # StatisticsButton
+        self.stats_button = QPushButton("Global Statistics", self)
+        self.stats_button.clicked.connect(self.show_statistics)
+        self.stats_button.setStyleSheet("""
+            QPushButton {
+                background-color: #4a90e2;
+                color: white;
+                border: none;
+                padding: 5px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #357abd;
+            }
+        """)
 
+    def show_statistics(self):
+        """Show statistics window"""
+        stats_window = StatisticsWindow(self.global_stats, self)
+        stats_window.exec()
 
     def load_game(self):
         """Load or initialize game state"""
         save_data = SaveManager.load_game()
-
-
-
         if save_data:
             self.load_saved_game(save_data)
         else:
@@ -207,9 +224,14 @@ class GameWidget(QWidget):
         if reply == QMessageBox.StandardButton.Yes:
             self.money += price
             self.stats[animal_type]["sold"] += 1
+
+            self.global_stats.total_animals_sold += 1
+            self.global_stats.total_money_earned += price
+            self.global_stats.total_animals_sold_by_type[animal_type.name] += 1
             field.remove_animal()
             self.update()
             self.save_game()
+            self.save_global_stats()
 
     def get_field_price(self):
         """Calculate price for next field"""
@@ -313,9 +335,12 @@ class GameWidget(QWidget):
             QColor(255, 255, 255, 100)
         )
 
+
         # Draw statistics
         self.paint_handler.draw_statistics(painter, self.stats, self.money)
 
+        painter.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        painter.drawText(10, 120, f"Day: {self.global_stats.current_day}")
 
 
 
@@ -353,18 +378,9 @@ class GameWidget(QWidget):
                         "🔒"
                     )
 
-                # グローバル統計情報の表示
-            y_pos = 150  # 適切な位置に調整
-            painter.drawText(10, y_pos, "Global Statistics:")
-            y_pos += 20
-            painter.drawText(10, y_pos, f"Highest Money: {self.global_stats.highest_money}")
-            y_pos += 20
-            painter.drawText(10, y_pos, f"Day: {self.global_stats.current_day}")
-            y_pos += 20
-            painter.drawText(10, y_pos, f"Highest Day: {self.global_stats.highest_day}")
 
-            # リセットボタンの位置を設定
-            self.reset_button.setGeometry(10, self.height() - 40, 100, 30)
+            self.stats_button.setGeometry(10, self.height() - 80, 100, 30)  # StatisticsButton
+            self.reset_button.setGeometry(10, self.height() - 40, 100, 30)  # ResetButton
 
     def mousePressEvent(self, event):
         """Handle mouse press events"""
@@ -410,7 +426,10 @@ class GameWidget(QWidget):
         total_production = 0
         for row in self.fields:
             for field in row:
-                if field.animal and not field.animal.is_dead:
+                if field.animal:
+                    if field.animal.growth >= field.animal.max_growth and not field.animal.is_dead:
+                        self.global_stats.total_animals_died_by_type[field.animal.animal_type.name] += 1
+
                     field.animal.grow()
                     print(f"Animal growth: {field.animal.growth}%")
 
