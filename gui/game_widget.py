@@ -6,6 +6,8 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPainter, QColor, QCursor, QFont
 from aqt import gui_hooks
 
+from .animal_breed import AnimalBreed
+from .shop_window import ShopWindow
 from .statistics_window import StatisticsWindow
 from ..models.global_status import GlobalStats
 from ..models.animal import Animal
@@ -30,6 +32,13 @@ class GameWidget(QWidget):
         self.setGeometry(100, 100, window_width, window_height)
         self.setWindowTitle("Anki Ranch")
 
+
+        self.breeds = {
+            AnimalType.PIG: AnimalBreed(AnimalType.PIG),
+            AnimalType.CHICKEN: AnimalBreed(AnimalType.CHICKEN),
+            AnimalType.COW: AnimalBreed(AnimalType.COW)
+        }
+
         # Initialize game state
         self.load_game()
 
@@ -45,6 +54,24 @@ class GameWidget(QWidget):
 
         self.global_stats = GlobalStats()
         self.load_global_stats()
+
+
+
+        # ショップボタンの追加
+        self.shop_button = QPushButton("Shop", self)
+        self.shop_button.clicked.connect(self.show_shop)
+        self.shop_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #4CAF50;
+                    color: white;
+                    border: none;
+                    padding: 5px;
+                    border-radius: 3px;
+                }
+                QPushButton:hover {
+                    background-color: #45a049;
+                }
+            """)
 
         # ResetButton
         self.reset_button = QPushButton("Reset Game", self)
@@ -77,6 +104,11 @@ class GameWidget(QWidget):
                 background-color: #357abd;
             }
         """)
+
+    def show_shop(self):
+        """ショップウィンドウを表示"""
+        shop_window = ShopWindow(self)
+        shop_window.exec()
 
     def show_statistics(self):
         """Show statistics window"""
@@ -149,26 +181,42 @@ class GameWidget(QWidget):
                 row.append(field)
             self.fields.append(row)
 
-
+        breeds_data = save_data.get("breeds", {})
+        for animal_type in AnimalType:
+            if animal_type != AnimalType.EMPTY:
+                breed_data = breeds_data.get(animal_type.name, {})
+                self.breeds[animal_type].level = breed_data.get("level", 0)
+                self.breeds[animal_type].is_unlocked = breed_data.get("is_unlocked", animal_type == AnimalType.CHICKEN)
 
     def save_game(self):
-        """Save current game state"""
         game_state = {
             "money": self.money,
             "unlocked_fields": self.unlocked_fields,
             "stats": self.stats,
             "fields": self.fields,
+            "breeds": {
+                animal_type.name: {
+                    "level": breed.level,
+                    "is_unlocked": breed.is_unlocked
+                }
+                for animal_type, breed in self.breeds.items()
+            }
         }
         SaveManager.save_game(game_state)
 
+
     def show_animal_selection_dialog(self):
-        """Show dialog for animal selection"""
         menu = QMenu(self)
         for animal_type in AnimalType:
             if animal_type != AnimalType.EMPTY:
-                action = menu.addAction(
-                    f"{animal_type.emoji} {animal_type.label} ({animal_type.price} coins)")
-                action.setData(animal_type)
+                if self.breeds[animal_type].is_unlocked:
+                    action = menu.addAction(
+                        f"{animal_type.emoji} {animal_type.label} ({animal_type.price} coins)")
+                    action.setData(animal_type)
+                else:
+                    action = menu.addAction(
+                        f"{animal_type.emoji} {animal_type.label} (Locked)")
+                    action.setEnabled(False)
 
         action = menu.exec(QCursor.pos())
         return action.data() if action else None
@@ -344,7 +392,6 @@ class GameWidget(QWidget):
         painter.drawText(10, 120, f"Day: {self.global_stats.current_day}")
 
 
-
         # Draw fields
         for y in range(GRID_SIZE):
             for x in range(GRID_SIZE):
@@ -379,9 +426,10 @@ class GameWidget(QWidget):
                         "🔒"
                     )
 
-
+            self.shop_button.setGeometry(10, self.height() - 120, 100, 30)  # ShopButton
             self.stats_button.setGeometry(10, self.height() - 80, 100, 30)  # StatisticsButton
             self.reset_button.setGeometry(10, self.height() - 40, 100, 30)  # ResetButton
+
 
     def mousePressEvent(self, event):
         """Handle mouse press events"""

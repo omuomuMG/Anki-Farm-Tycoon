@@ -29,18 +29,17 @@ class Animal:
         if self.is_dead:
             return 0
 
-        if self.animal_type == AnimalType.CHICKEN:
-            if random.random() < CHICKEN_PRODUCTION_CHANCE:
-                self.has_product = True
-                return random.randint(CHICKEN_MIN_PRODUCTION, CHICKEN_MAX_PRODUCTION)
-        elif self.animal_type == AnimalType.COW:
-            if random.random() < COW_PRODUCTION_CHANCE:
-                self.has_product = True
-                return COW_PRODUCTION_VALUE
-        elif self.animal_type == AnimalType.PIG:
-            if random.random() < PIG_PRODUCTION_CHANCE:
-                self.has_product = True
-                return 0
+        breed = self.game_widget.breeds[self.animal_type]
+        chance = breed.get_production_chance()
+
+        if random.random() < chance:
+            self.has_product = True
+            if self.animal_type == AnimalType.CHICKEN:
+                return random.randint(5, 10)
+            elif self.animal_type == AnimalType.COW:
+                return 50
+            elif self.animal_type == AnimalType.PIG:
+                return 0  # 成長促進剤
         return 0
 
     def get_sale_price(self):
