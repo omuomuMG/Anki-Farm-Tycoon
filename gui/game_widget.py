@@ -6,6 +6,8 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPainter, QColor, QCursor, QFont
 from aqt import gui_hooks
 
+from .employee_management_window import EmployeeManagementWindow
+from ..models.emploee import Employee
 from .animal_breed import AnimalBreed
 from .shop_window import ShopWindow
 from .statistics_window import StatisticsWindow
@@ -39,9 +41,8 @@ class GameWidget(QWidget):
             AnimalType.COW: AnimalBreed(AnimalType.COW)
         }
 
-        # Initialize game state
+        self.employees = {}
         self.load_game()
-
 
         # Load resources
         self.resources = ResourceManager.load_all_resources()
@@ -55,9 +56,6 @@ class GameWidget(QWidget):
         self.global_stats = GlobalStats()
         self.load_global_stats()
 
-
-
-        # ショップボタンの追加
         self.shop_button = QPushButton("Shop", self)
         self.shop_button.clicked.connect(self.show_shop)
         self.shop_button.setStyleSheet("""
@@ -70,6 +68,21 @@ class GameWidget(QWidget):
                 }
                 QPushButton:hover {
                     background-color: #45a049;
+                }
+            """)
+
+        self.employee_button = QPushButton("Employees", self)
+        self.employee_button.clicked.connect(self.show_employee_management)
+        self.employee_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #9b59b6;
+                    color: white;
+                    border: none;
+                    padding: 5px;
+                    border-radius: 3px;
+                }
+                QPushButton:hover {
+                    background-color: #8e44ad;
                 }
             """)
 
@@ -104,6 +117,86 @@ class GameWidget(QWidget):
                 background-color: #357abd;
             }
         """)
+
+    def show_employee_management(self):
+        """従業員管理ウィンドウを表示"""
+        employee_window = EmployeeManagementWindow(self)
+        employee_window.exec()
+
+    def get_field_by_position(self, position: int):
+        """位置番号からフィールドを取得"""
+        y = position // GRID_SIZE
+        x = position % GRID_SIZE
+
+        if 0 <= y < len(self.fields) and 0 <= x < len(self.fields[y]):
+            return self.fields[y][x]
+        return None
+
+    def update_employees(self):
+        """従業員の行動を更新"""
+        for employee in self.employees.values():
+            if not employee.enabled:
+                continue
+
+            field = self.get_field_by_position(employee.position)
+            if not field:
+                continue
+
+            # 動物がいない場合は購入
+            if not field.animal:
+                animal_type = employee.choose_animal_to_buy()
+                if self.money >= animal_type.price:
+                    self.money -= animal_type.price
+                    field.add_animal(Animal(animal_type, breed_level=self.breeds[animal_type].level))
+
+            # 動物を売却するか判断
+            elif employee.should_sell_animal(field.animal):
+                price = field.animal.get_sale_price()
+                salary = int(price * employee.get_salary_rate())
+                self.money += (price - salary)
+                employee.total_earnings += salary
+                employee.total_sales += 1
+
+                # 統計情報を更新
+                animal_type = field.animal.animal_type
+                self.stats[animal_type]["sold"] += 1
+                self.global_stats.total_animals_sold += 1
+                self.global_stats.total_money_earned += price
+                self.global_stats.total_animals_sold_by_type[animal_type.name] += 1
+
+                field.remove_animal()
+                self.save_game()
+                self.save_global_stats()
+
+
+    def hire_employee(self, position: int) -> bool:
+        """新しい従業員を雇用"""
+        if position in self.employees:
+            return False
+
+        # 新しい従業員を作成（A, B, C...の順で名前を付ける）
+        name = chr(65 + len(self.employees))
+        employee = Employee(name=name, position=position)
+        self.employees[position] = employee
+        return True
+
+    def upgrade_employee(self, employee: Employee):
+        """従業員をレベルアップ"""
+        if employee.level >= employee.max_level:
+            return False
+
+        cost = employee.get_upgrade_cost()
+        if self.money >= cost:
+            self.money -= cost
+            employee.level += 1
+            self.save_game()
+            return True
+        return False
+
+    def toggle_employee(self, employee: Employee):
+        """従業員の有効/無効を切り替え"""
+        employee.enabled = not employee.enabled
+        self.save_game()
 
     def show_shop(self):
         """ショップウィンドウを表示"""
@@ -170,7 +263,8 @@ class GameWidget(QWidget):
                     animal_data = field_data.get("animal")
                     if animal_data:
                         animal_type = AnimalType[animal_data["type"]]
-                        animal = Animal(animal_type)
+                        breed_level = self.breeds[animal_type].level
+                        animal = Animal(animal_type, breed_level=breed_level)
                         animal.growth = animal_data["growth"]
                         animal.is_dead = animal_data["is_dead"]
                         animal.has_product = animal_data["has_product"]
@@ -179,7 +273,7 @@ class GameWidget(QWidget):
                 else:
                     field = Field(x, y)
                 row.append(field)
-            self.fields.append(row)
+                self.fields.append(row)
 
         breeds_data = save_data.get("breeds", {})
         for animal_type in AnimalType:
@@ -188,18 +282,60 @@ class GameWidget(QWidget):
                 self.breeds[animal_type].level = breed_data.get("level", 0)
                 self.breeds[animal_type].is_unlocked = breed_data.get("is_unlocked", animal_type == AnimalType.CHICKEN)
 
+        employees_data = save_data.get("employees", {})
+        for pos_str, emp_data in employees_data.items():
+            pos = int(pos_str)
+            employee = Employee(emp_data["name"], pos)
+            employee.level = emp_data["level"]
+            employee.enabled = emp_data["enabled"]
+            employee.total_earnings = emp_data["total_earnings"]
+            employee.total_sales = emp_data["total_sales"]
+            self.employees[pos] = employee
+
     def save_game(self):
         game_state = {
             "money": self.money,
             "unlocked_fields": self.unlocked_fields,
-            "stats": self.stats,
-            "fields": self.fields,
+            "stats": {
+                animal_type.name: stats  # AnimalTypeの名前をキーとして使用
+                for animal_type, stats in self.stats.items()
+            },
+            "fields": [
+                [
+                    {
+                        "x": field.x,
+                        "y": field.y,
+                        "animal": {
+                            "type": field.animal.animal_type.name,
+                            "growth": field.animal.growth,
+                            "is_dead": field.animal.is_dead,
+                            "has_product": field.animal.has_product,
+                            "max_growth": field.animal.max_growth
+                        } if field.animal else None
+                    }
+                    for field in row
+                ]
+                for row in self.fields
+            ],
             "breeds": {
                 animal_type.name: {
                     "level": breed.level,
                     "is_unlocked": breed.is_unlocked
                 }
                 for animal_type, breed in self.breeds.items()
+                if animal_type != AnimalType.EMPTY
+            },
+            # 従業員情報を追加
+            "employees": {
+                str(pos): {  # 位置を文字列に変換してキーとして使用
+                    "name": emp.name,
+                    "level": emp.level,
+                    "enabled": emp.enabled,
+                    "total_earnings": emp.total_earnings,
+                    "total_sales": emp.total_sales,
+                    "position": emp.position
+                }
+                for pos, emp in self.employees.items()
             }
         }
         SaveManager.save_game(game_state)
@@ -426,7 +562,19 @@ class GameWidget(QWidget):
                         "🔒"
                     )
 
-            self.shop_button.setGeometry(10, self.height() - 120, 100, 30)  # ShopButton
+            if field_number in self.employees:
+                employee = self.employees[field_number]
+                if employee.enabled:
+                    painter.drawPixmap(
+                        pos_x + self.cell_size - 20,
+                        pos_y,
+                        20,
+                        20,
+                        self.resources['employee_icon']
+                    )
+
+            self.shop_button.setGeometry(10, self.height() - 160, 100, 30)  # ShopButton
+            self.employee_button.setGeometry(10, self.height() - 120, 100, 30)
             self.stats_button.setGeometry(10, self.height() - 80, 100, 30)  # StatisticsButton
             self.reset_button.setGeometry(10, self.height() - 40, 100, 30)  # ResetButton
 
@@ -451,7 +599,8 @@ class GameWidget(QWidget):
                     if selected_type:
                         purchase_price = selected_type.price
                         if self.money >= purchase_price:
-                            field.add_animal(Animal(selected_type))
+                            breed_level = self.breeds[selected_type].level
+                            field.add_animal(Animal(selected_type, breed_level=breed_level))
                             self.money -= purchase_price
                             self.update()
                             self.save_game()
@@ -467,6 +616,8 @@ class GameWidget(QWidget):
                         self.try_cleanup_dead_animal(field)
                     else:
                         self.try_sell_animal(field)
+
+
 
     def called(self, reviewer, card, ease):
         """Handle Anki card review events"""
@@ -522,6 +673,7 @@ class GameWidget(QWidget):
 
         # ゲームオーバーチェック
         self.check_game_over()
+        self.update_employees()
 
         self.update()
         self.save_game()
@@ -546,3 +698,4 @@ class GameWidget(QWidget):
         except Exception as e:
             print(f"Error loading global stats: {e}")
             self.global_stats = GlobalStats()
+

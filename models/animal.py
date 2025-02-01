@@ -8,13 +8,26 @@ from ..constants import (
 )
 
 class Animal:
-    def __init__(self, animal_type: AnimalType):
+    def __init__(self, animal_type: AnimalType, breed_level: int = 0):
         self.animal_type = animal_type
         self.growth = 0
         self.growth_boost = 0
         self.max_growth = MAX_GROWTH
         self.is_dead = False
         self.has_product = False
+        self.breed_level = breed_level
+
+    def get_production_chance(self) -> float:
+        """生産確率を計算"""
+        base_chance = {
+            AnimalType.PIG: 0.01,  # 1%
+            AnimalType.CHICKEN: 0.10,  # 10%
+            AnimalType.COW: 0.02  # 2%
+        }.get(self.animal_type, 0)
+
+        # レベルごとに1%ずつ上昇
+        level_bonus = self.breed_level * 0.01
+        return base_chance + level_bonus
 
     def grow(self):
         """Handle animal growth"""
@@ -29,17 +42,16 @@ class Animal:
         if self.is_dead:
             return 0
 
-        breed = self.game_widget.breeds[self.animal_type]
-        chance = breed.get_production_chance()
 
-        if random.random() < chance:
+
+        if random.random() < self.get_production_chance():
             self.has_product = True
             if self.animal_type == AnimalType.CHICKEN:
                 return random.randint(5, 10)
             elif self.animal_type == AnimalType.COW:
                 return 50
             elif self.animal_type == AnimalType.PIG:
-                return 0  # 成長促進剤
+                return 0
         return 0
 
     def get_sale_price(self):
