@@ -10,6 +10,7 @@ class ResourceManager:
             'locked_tile': QPixmap(str(RESOURCES_DIR / "maptile_sogen_hana_01.svg")),
             'stats_bg': QPixmap(str(RESOURCES_DIR / "maptile_sogen_01.svg")),
             'grave': QPixmap(str(RESOURCES_DIR / "grave.svg")),
+            'employee_icon': QPixmap(str(RESOURCES_DIR / "employee_icon.svg")),
             'animals': {
                 AnimalType.PIG: QPixmap(str(RESOURCES_DIR / "buta.svg")),
                 AnimalType.CHICKEN: QPixmap(str(RESOURCES_DIR / "niwatori_male.svg")),
