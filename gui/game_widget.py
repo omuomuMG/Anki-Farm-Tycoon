@@ -124,12 +124,16 @@ class GameWidget(QWidget):
         employee_window.exec()
 
     def get_field_by_position(self, position: int):
-        """位置番号からフィールドを取得"""
         y = position // GRID_SIZE
         x = position % GRID_SIZE
 
         if 0 <= y < len(self.fields) and 0 <= x < len(self.fields[y]):
             return self.fields[y][x]
+        return None
+
+    def get_field_by_employee(self, employee: Employee):
+        if 0 <= employee.y < len(self.fields) and 0 <= employee.x < len(self.fields[employee.y]):
+            return self.fields[employee.y][employee.x]
         return None
 
     def update_employees(self):
@@ -138,26 +142,25 @@ class GameWidget(QWidget):
             if not employee.enabled:
                 continue
 
-            field = self.get_field_by_position(employee.position)
+            field = self.get_field_by_employee(employee)
             if not field:
                 continue
 
-            # 動物がいない場合は購入
+            # 動物がいない場合は購入を試みる
             if not field.animal:
                 animal_type = employee.choose_animal_to_buy()
                 if self.money >= animal_type.price:
                     self.money -= animal_type.price
                     field.add_animal(Animal(animal_type, breed_level=self.breeds[animal_type].level))
 
-            # 動物を売却するか判断
-            elif employee.should_sell_animal(field.animal):
+            # 動物がいる場合は売却を判断
+            elif field.animal and employee.should_sell_animal(field.animal):
                 price = field.animal.get_sale_price()
                 salary = int(price * employee.get_salary_rate())
                 self.money += (price - salary)
                 employee.total_earnings += salary
                 employee.total_sales += 1
 
-                # 統計情報を更新
                 animal_type = field.animal.animal_type
                 self.stats[animal_type]["sold"] += 1
                 self.global_stats.total_animals_sold += 1
@@ -168,16 +171,14 @@ class GameWidget(QWidget):
                 self.save_game()
                 self.save_global_stats()
 
-
-    def hire_employee(self, position: int) -> bool:
-        """新しい従業員を雇用"""
-        if position in self.employees:
-            return False
-
-        # 新しい従業員を作成（A, B, C...の順で名前を付ける）
-        name = chr(65 + len(self.employees))
-        employee = Employee(name=name, position=position)
-        self.employees[position] = employee
+    def hire_employee(self, x: int, y: int) -> bool:
+        for emp in self.employees.values():
+            if emp.x == x and emp.y == y:
+                return False
+        field_number = y * GRID_SIZE + x
+        name = chr(65 + field_number)#len(self.employees))
+        employee = Employee(name=name, x=x, y=y)
+        self.employees[name] = employee
         return True
 
     def upgrade_employee(self, employee: Employee):
@@ -194,12 +195,10 @@ class GameWidget(QWidget):
         return False
 
     def toggle_employee(self, employee: Employee):
-        """従業員の有効/無効を切り替え"""
         employee.enabled = not employee.enabled
         self.save_game()
 
     def show_shop(self):
-        """ショップウィンドウを表示"""
         shop_window = ShopWindow(self)
         shop_window.exec()
 
@@ -251,7 +250,7 @@ class GameWidget(QWidget):
 
         # Load fields
         self.fields = []
-        saved_fields = save_data["fields"]
+        saved_fields = save_data.get("fields", [])
 
         for y in range(GRID_SIZE):
             row = []
@@ -273,31 +272,44 @@ class GameWidget(QWidget):
                 else:
                     field = Field(x, y)
                 row.append(field)
-                self.fields.append(row)
+            self.fields.append(row)
 
         breeds_data = save_data.get("breeds", {})
         for animal_type in AnimalType:
             if animal_type != AnimalType.EMPTY:
                 breed_data = breeds_data.get(animal_type.name, {})
                 self.breeds[animal_type].level = breed_data.get("level", 0)
-                self.breeds[animal_type].is_unlocked = breed_data.get("is_unlocked", animal_type == AnimalType.CHICKEN)
+                self.breeds[animal_type].is_unlocked = breed_data.get(
+                    "is_unlocked",
+                    animal_type == AnimalType.CHICKEN
+                )
 
+        self.employees = {}
         employees_data = save_data.get("employees", {})
-        for pos_str, emp_data in employees_data.items():
-            pos = int(pos_str)
-            employee = Employee(emp_data["name"], pos)
-            employee.level = emp_data["level"]
-            employee.enabled = emp_data["enabled"]
-            employee.total_earnings = emp_data["total_earnings"]
-            employee.total_sales = emp_data["total_sales"]
-            self.employees[pos] = employee
+        for emp_name, emp_data in employees_data.items():
+            x = emp_data.get("x", 0)
+            y = emp_data.get("y", 0)
+
+            employee = Employee(
+                name=emp_data["name"],
+                x=x,
+                y=y
+            )
+            employee.level = emp_data.get("level", 1)
+            employee.enabled = emp_data.get("enabled", True)
+            employee.total_earnings = emp_data.get("total_earnings", 0)
+            employee.total_sales = emp_data.get("total_sales", 0)
+
+            self.employees[emp_name] = employee
+
+        print(f"Loaded employees: {[(emp.name, emp.x, emp.y) for emp in self.employees.values()]}")  # デバッグ用
 
     def save_game(self):
         game_state = {
             "money": self.money,
             "unlocked_fields": self.unlocked_fields,
             "stats": {
-                animal_type.name: stats  # AnimalTypeの名前をキーとして使用
+                animal_type.name: stats
                 for animal_type, stats in self.stats.items()
             },
             "fields": [
@@ -325,17 +337,17 @@ class GameWidget(QWidget):
                 for animal_type, breed in self.breeds.items()
                 if animal_type != AnimalType.EMPTY
             },
-            # 従業員情報を追加
             "employees": {
-                str(pos): {  # 位置を文字列に変換してキーとして使用
+                emp.name: {
                     "name": emp.name,
+                    "x": emp.x,
+                    "y": emp.y,
                     "level": emp.level,
                     "enabled": emp.enabled,
                     "total_earnings": emp.total_earnings,
-                    "total_sales": emp.total_sales,
-                    "position": emp.position
+                    "total_sales": emp.total_sales
                 }
-                for pos, emp in self.employees.items()
+                for emp in self.employees.values()
             }
         }
         SaveManager.save_game(game_state)
@@ -527,8 +539,6 @@ class GameWidget(QWidget):
         painter.setFont(QFont("Arial", 12, QFont.Weight.Bold))
         painter.drawText(10, 120, f"Day: {self.global_stats.current_day}")
 
-
-        # Draw fields
         for y in range(GRID_SIZE):
             for x in range(GRID_SIZE):
                 field = self.fields[y][x]
@@ -562,15 +572,27 @@ class GameWidget(QWidget):
                         "🔒"
                     )
 
-            if field_number in self.employees:
-                employee = self.employees[field_number]
-                if employee.enabled:
-                    painter.drawPixmap(
-                        pos_x + self.cell_size - 20,
-                        pos_y,
-                        20,
-                        20,
-                        self.resources['employee_icon']
+                if chr(64 + field_number) in self.employees:
+                    employee = self.employees[chr(64 + field_number)]
+                    if employee.enabled:
+                        icon_size = 20
+                        painter.drawPixmap(
+                            pos_x + CELL_SIZE - icon_size - 5,
+                            pos_y + 5,
+                            icon_size,
+                            icon_size,
+                            self.resources['employee_icon']
+                        )
+
+
+                else:
+                    position_letter = chr(64 + field_number)
+                    painter.setFont(QFont("Arial", 4, QFont.Weight.Bold))
+                    painter.setPen(QColor(0, 0, 0))
+                    painter.drawText(
+                        pos_x + CELL_SIZE - 25,
+                        pos_y + 20,
+                        position_letter
                     )
 
             self.shop_button.setGeometry(10, self.height() - 160, 100, 30)  # ShopButton
@@ -671,7 +693,6 @@ class GameWidget(QWidget):
         self.global_stats.update_money_record(self.money)
         self.global_stats.update_day_count()
 
-        # ゲームオーバーチェック
         self.check_game_over()
         self.update_employees()
 
