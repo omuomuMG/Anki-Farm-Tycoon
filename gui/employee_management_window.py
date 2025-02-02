@@ -2,6 +2,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QGridLayout, QFrame, QScrollArea, QWidget, QMessageBox)
 from PyQt6.QtCore import Qt
 
+from ..constants import GRID_SIZE
 from ..models.emploee import Employee
 
 
@@ -21,19 +22,19 @@ class EmployeeManagementWindow(QDialog):
         main_layout.addWidget(title)
 
         self.money_label = QLabel(f"Money: {self.parent.money} coins")
-        self.money_label.setStyleSheet("font-size: 14px; color: #2c3e50; margin: 5px;")
+        self.money_label.setStyleSheet("font-size: 14px; color: #white; margin: 5px;")
         main_layout.addWidget(self.money_label)
 
-        # スクロールエリアの作成
+
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
-        # スクロール内のコンテンツウィジェット
+
         content_widget = QWidget()
         self.content_layout = QVBoxLayout(content_widget)
 
-        # 従業員フレームを追加
+
         self.update_display()
 
         scroll.setWidget(content_widget)
@@ -57,8 +58,12 @@ class EmployeeManagementWindow(QDialog):
         close_btn.clicked.connect(self.close)
         main_layout.addWidget(close_btn)
 
-    def create_employee_frame(self, position):
-        """従業員情報または雇用枠のフレームを作成"""
+    def get_position_name(self, x: int, y: int) -> str:
+        field_number = y * GRID_SIZE + x
+        pos_name = chr(65 + field_number)
+        return f"{pos_name}"
+
+    def create_employee_frame(self, x: int, y: int):
         frame = QFrame()
         frame.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Raised)
         frame.setStyleSheet("""
@@ -73,16 +78,18 @@ class EmployeeManagementWindow(QDialog):
 
         layout = QVBoxLayout()
 
-        # 従業員が既に雇用されているかチェック
-        employee = self.parent.employees.get(position)
 
-        if employee:  # 既存の従業員の場合
-            # ヘッダー
+        employee = None
+        for emp in self.parent.employees.values():
+            if emp.x == x and emp.y == y:
+                employee = emp
+                break
+
+        if employee:
             header = QLabel(f"👨‍💼 Employee {employee.name}")
             header.setStyleSheet("font-size: 14px; font-weight: bold; color: #2c3e50;")
             layout.addWidget(header)
 
-            # 情報表示
             info_layout = QGridLayout()
 
             level_text = QLabel(f"Level: {employee.level}/{employee.max_level}")
@@ -143,9 +150,9 @@ class EmployeeManagementWindow(QDialog):
 
             layout.addLayout(button_layout)
 
-        else:  # 新規雇用枠の場合
-            hire_cost = Employee.calculate_hire_cost(position)
-            header = QLabel(f"📍 Position {position + 1}")
+        else:
+            hire_cost = Employee.calculate_hire_cost(x, y)
+            header = QLabel(f"📍 Position {self.get_position_name(x, y)}")
             header.setStyleSheet("font-size: 14px; font-weight: bold; color: #2c3e50;")
             layout.addWidget(header)
 
@@ -162,37 +169,31 @@ class EmployeeManagementWindow(QDialog):
                     background-color: #2980b9;
                 }
             """)
-            hire_btn.clicked.connect(lambda: self.try_hire_employee(position))
+            hire_btn.clicked.connect(lambda: self.try_hire_employee(x, y))
             layout.addWidget(hire_btn)
 
         frame.setLayout(layout)
         return frame
 
     def update_display(self):
-        """表示を更新"""
-        # 既存のウィジェットをクリア
         while self.content_layout.count():
             item = self.content_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
 
-        # 解放されたマスの数に基づいて従業員フレームを表示
-        for position in range(self.parent.unlocked_fields):
-            frame = self.create_employee_frame(position)
-            self.content_layout.addWidget(frame)
+        for y in range(GRID_SIZE):
+            for x in range(GRID_SIZE):
+                if y * GRID_SIZE + x < self.parent.unlocked_fields:
+                    frame = self.create_employee_frame(x, y)
+                    self.content_layout.addWidget(frame)
 
-        # 所持金の表示を更新
         self.money_label.setText(f"Money: {self.parent.money} coins")
-
-        # 余白を追加
         self.content_layout.addStretch()
 
-    def try_hire_employee(self, position):
-        """従業員の雇用を試みる"""
-        hire_cost = Employee.calculate_hire_cost(position)
-
+    def try_hire_employee(self, x: int, y: int):
+        hire_cost = Employee.calculate_hire_cost(x, y)
         if self.parent.money >= hire_cost:
-            if self.parent.hire_employee(position):
+            if self.parent.hire_employee(x, y):
                 self.parent.money -= hire_cost
                 self.parent.save_game()
                 self.update_display()
@@ -200,7 +201,7 @@ class EmployeeManagementWindow(QDialog):
                 QMessageBox.information(
                     self,
                     "Hiring Successful",
-                    f"New employee has been hired for position {position + 1}!"
+                    f"New employee has been hired for position ({x + 1}, {y + 1})!"
                 )
         else:
             QMessageBox.warning(
