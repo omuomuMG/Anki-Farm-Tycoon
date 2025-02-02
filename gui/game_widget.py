@@ -226,6 +226,7 @@ class GameWidget(QWidget):
             AnimalType.CHICKEN: {"sold": 0, "cleaned": 0},
             AnimalType.COW: {"sold": 0, "cleaned": 0}
         }
+        self.employees={}
 
         # Initialize fields
         self.fields = []
