@@ -497,25 +497,37 @@ class GameWidget(QWidget):
 
         if msg.exec() == QMessageBox.StandardButton.Yes:
             self.reset_game()
-        else:
-            self.close()
 
     def reset_game(self):
-        self.save_global_stats()
-        self.money = INITIAL_MONEY
-        self.unlocked_fields = 1
-        self.fields = []
-        for y in range(GRID_SIZE):
-            row = []
-            for x in range(GRID_SIZE):
-                row.append(Field(x, y))
-            self.fields.append(row)
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Reset Game")
+        msg.setText("global statics aren't reset")
+        msg.setInformativeText(
+            f"Total animals sold: {self.global_stats.total_animals_sold}\n"
+            f"Total money earned: {self.global_stats.total_money_earned}\n"
+            f"Highest money achieved: {self.global_stats.highest_money}\n"
+            f"Days survived: {self.global_stats.current_day}\n"
+            f"Highest day reached: {self.global_stats.highest_day}\n"
+            "\nWould you like to reset the game?"
+        )
+        msg.setStandardButtons(QMessageBox.StandardButton.Yes |
+                               QMessageBox.StandardButton.No)
+        if msg.exec() == QMessageBox.StandardButton.Yes:
+            self.save_global_stats()
+            self.money = INITIAL_MONEY
+            self.unlocked_fields = 1
+            self.fields = []
+            for y in range(GRID_SIZE):
+                row = []
+                for x in range(GRID_SIZE):
+                    row.append(Field(x, y))
+                self.fields.append(row)
 
-        self.global_stats.current_day = 0
-        self.global_stats.answers_count = 0
-        self.update()
-        self.save_game()
-        self.initialize_new_game()
+            self.global_stats.current_day = 0
+            self.global_stats.answers_count = 0
+            self.update()
+            self.save_game()
+            self.initialize_new_game()
 
     def paintEvent(self, event):
         """Handle paint event"""
