@@ -1,5 +1,6 @@
 import random
 
+from ..utils.save_manager import SaveManager
 from ..constants import GRID_SIZE
 from .animal_type import AnimalType
 
@@ -39,8 +40,23 @@ class Employee:
         return animal.growth >= optimal_growth
 
     def choose_animal_to_buy(self) -> AnimalType:
-        choices = [AnimalType.CHICKEN] * (11 - self.level)
-        choices += [AnimalType.PIG] * self.level
-        choices += [AnimalType.COW] * (self.level // 2)
+        save_data = SaveManager.load_game()
+
+        pig = save_data["breeds"].get(
+            "PIG", {"level": 0, "is_unlocked": False}
+        )
+
+        cow = save_data["breeds"].get(
+            "COW", {"level": 0, "is_unlocked": False}
+        )
+
+        choices = [AnimalType.CHICKEN] * self.level
+
+        if pig["is_unlocked"]:
+            choices += [AnimalType.PIG] * self.level
+
+        if cow["is_unlocked"]:
+            choices += [AnimalType.COW] * self.level
+
         return random.choice(choices)
 
