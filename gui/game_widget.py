@@ -146,7 +146,6 @@ class GameWidget(BaseWindow):
         return None
 
     def update_employees(self):
-        """従業員の行動を更新"""
         for employee in self.employees.values():
             if not employee.enabled:
                 continue
@@ -155,14 +154,14 @@ class GameWidget(BaseWindow):
             if not field:
                 continue
 
-            # 動物がいない場合は購入を試みる
+            # if animal does not exits field
             if not field.animal:
                 animal_type = employee.choose_animal_to_buy()
                 if self.money >= animal_type.price:
                     self.money -= animal_type.price
                     field.add_animal(Animal(animal_type, breed_level=self.breeds[animal_type].level))
 
-            # 動物がいる場合は売却を判断
+            # if animal does exits field
             elif field.animal and employee.should_sell_animal(field.animal):
                 price = field.animal.get_sale_price()
                 salary = int(price * employee.get_salary_rate())
@@ -185,14 +184,14 @@ class GameWidget(BaseWindow):
             if emp.x == x and emp.y == y:
                 return False
         field_number = y * GRID_SIZE + x
-        name = chr(65 + field_number)#len(self.employees))
+        name = chr(65 + field_number)
         employee = Employee(name=name, x=x, y=y)
         self.employees[name] = employee
         self.update()
         return True
 
     def upgrade_employee(self, employee: Employee):
-        """level up emplyee"""
+        """level up employee"""
         if employee.level >= employee.max_level:
             return False
 
@@ -240,10 +239,8 @@ class GameWidget(BaseWindow):
             AnimalType.COW: {"sold": 0, "dead": 0}
         }
 
-
         self.employees={}
 
-        # 動物の品種情報を初期化
         self.breeds = {
             AnimalType.PIG: AnimalBreed(AnimalType.PIG),
             AnimalType.CHICKEN: AnimalBreed(AnimalType.CHICKEN),
@@ -256,7 +253,6 @@ class GameWidget(BaseWindow):
 
         for breed in self.breeds.values():
             breed.level = 0
-
 
         # Initialize fields
         self.fields = []
@@ -636,19 +632,8 @@ class GameWidget(BaseWindow):
                             self.resources['employee_icon']
                         )
 
-
-                else:
-                    position_letter = chr(64 + field_number)
-                    painter.setFont(QFont("Arial", 4, QFont.Weight.Bold))
-                    painter.setPen(QColor(0, 0, 0))
-                    painter.drawText(
-                        pos_x + CELL_SIZE - 25,
-                        pos_y + 20,
-                        position_letter
-                    )
-
             self.shop_button.setGeometry(10, self.height() - 160, 100, 30)  # ShopButton
-            self.employee_button.setGeometry(10, self.height() - 120, 100, 30)
+            self.employee_button.setGeometry(10, self.height() - 120, 100, 30) # employeeButton
             self.stats_button.setGeometry(10, self.height() - 80, 100, 30)  # StatisticsButton
             self.reset_button.setGeometry(10, self.height() - 40, 100, 30)  # ResetButton
 
