@@ -2,7 +2,6 @@ import json
 from ..constants import ADDON_DIR
 from ..models.animal_type import AnimalType
 
-# utils/save_manager.py
 import json
 import os
 from pathlib import Path
@@ -12,13 +11,13 @@ class SaveManager:
     @classmethod
     def save_game(cls, game_state):
         try:
-
             save_dir = Path(__file__).parent.parent
             save_path = save_dir / "game_save.json"
 
 
             serializable_state = {
                 "money": game_state["money"],
+                "previous_money": game_state["previous_money"],
                 "unlocked_fields": game_state["unlocked_fields"],
                 "stats": game_state["stats"],
                 "fields": [
@@ -47,7 +46,7 @@ class SaveManager:
 
     @classmethod
     def load_game(cls):
-        """ゲームの状態を読み込む"""
+        """load game state"""
         try:
             save_dir = Path(__file__).parent.parent
             save_path = save_dir / "game_save.json"

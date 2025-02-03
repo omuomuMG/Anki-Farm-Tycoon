@@ -1,7 +1,9 @@
 from PyQt6.QtGui import QPainter, QColor
 from PyQt6.QtCore import Qt
+
+from ..utils.save_manager import SaveManager
 from ..models.animal_type import AnimalType
-from ..constants import CELL_SIZE
+from ..constants import CELL_SIZE, INITIAL_MONEY
 
 
 class PaintHandler:
@@ -13,11 +15,29 @@ class PaintHandler:
         font.setBold(True)
         painter.setFont(font)
 
+        previous_money = INITIAL_MONEY
+        save_data = SaveManager.load_game()
+
+        if save_data and "previous_money" in save_data:
+            previous_money = save_data["previous_money"]
+
+        money_increase =  money - previous_money
+
         # Money display
         painter.drawText(10, 20, f"Money: {money} coins")
 
+        if money_increase > 0:
+            painter.setPen(QColor(0, 0, 255))
+            painter.drawText(50, 30, f"+{money_increase}")
+            painter.setPen(QColor(0, 0, 0))
+        elif money_increase < 0:
+            painter.setPen(QColor(255, 0, 0))
+            painter.drawText(50, 30, f"{money_increase}")
+            painter.setPen(QColor(0, 0, 0))
+
+
         # Statistics
-        y_pos = 40
+        y_pos = 50
         font.setPointSize(11)
         painter.setFont(font)
         painter.drawText(10, y_pos, "Statistics:")

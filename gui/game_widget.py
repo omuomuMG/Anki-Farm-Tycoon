@@ -179,10 +179,11 @@ class GameWidget(QWidget):
         name = chr(65 + field_number)#len(self.employees))
         employee = Employee(name=name, x=x, y=y)
         self.employees[name] = employee
+        self.update()
         return True
 
     def upgrade_employee(self, employee: Employee):
-        """従業員をレベルアップ"""
+        """level up emplyee"""
         if employee.level >= employee.max_level:
             return False
 
@@ -306,8 +307,14 @@ class GameWidget(QWidget):
         print(f"Loaded employees: {[(emp.name, emp.x, emp.y) for emp in self.employees.values()]}")  # デバッグ用
 
     def save_game(self):
+        previous_money = INITIAL_MONEY
+        save_data = SaveManager.load_game()
+        if save_data and "money" in save_data:
+            previous_money = save_data["money"]
+
         game_state = {
             "money": self.money,
+            "previous_money": previous_money,
             "unlocked_fields": self.unlocked_fields,
             "stats": {
                 animal_type.name: stats
