@@ -4,7 +4,7 @@ from ..constants import INITIAL_MONEY
 class GlobalStats:
     def __init__(self):
         self.total_animals_sold = 0
-        self.total_animals_cleaned = 0
+        self.total_animals_dead = 0
         self.total_money_earned = INITIAL_MONEY
         self.highest_money = 0
         self.highest_day = 0
@@ -36,7 +36,7 @@ class GlobalStats:
     def to_dict(self):
         return {
             "total_animals_sold": self.total_animals_sold,
-            "total_animals_cleaned": self.total_animals_cleaned,
+            "total_animals_dead": self.total_animals_dead,
             "total_money_earned": self.total_money_earned,
             "highest_money": self.highest_money,
             "highest_day": self.highest_day,
@@ -50,7 +50,7 @@ class GlobalStats:
     def from_dict(cls, data: dict):
         stats = cls()
         stats.total_animals_sold = data.get("total_animals_sold", 0)
-        stats.total_animals_cleaned = data.get("total_animals_cleaned", 0)
+        stats.total_animals_dead = data.get("total_animals_dead", 0)
         stats.total_money_earned = data.get("total_money_earned", 0)
         stats.highest_money = data.get("highest_money", 0)
         stats.highest_day = data.get("highest_day", 0)

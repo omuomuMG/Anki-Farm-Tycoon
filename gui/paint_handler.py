@@ -47,7 +47,7 @@ class PaintHandler:
         painter.setFont(font)
         for animal_type in [AnimalType.PIG, AnimalType.CHICKEN, AnimalType.COW]:
             stat = stats[animal_type]
-            text = f"{animal_type.emoji} {animal_type.label}: Sold: {stat['sold']}, Cleaned: {stat['cleaned']}"
+            text = f"{animal_type.emoji} {animal_type.label}: Sold: {stat['sold']}, Dead: {stat['dead']}"
             painter.drawText(10, y_pos, text)
             y_pos += 20
 
