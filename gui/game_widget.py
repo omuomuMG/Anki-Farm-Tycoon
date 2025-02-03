@@ -23,6 +23,8 @@ from ..constants import (
     CELL_SIZE, STATS_PANEL_WIDTH, GRID_SIZE,
     INITIAL_MONEY, BASE_FIELD_PRICE, FIELD_PRICE_MULTIPLIER, ADDON_DIR
 )
+from pathlib import Path
+from aqt import mw
 
 
 class GameWidget(BaseWindow):
@@ -294,9 +296,9 @@ class GameWidget(BaseWindow):
         self.unlocked_fields = 1
 
         self.stats = {
-            AnimalType.PIG: {"sold": 0, "cleaned": 0},
-            AnimalType.CHICKEN: {"sold": 0, "cleaned": 0},
-            AnimalType.COW: {"sold": 0, "cleaned": 0}
+            AnimalType.PIG: {"sold": 0, "dead": 0},
+            AnimalType.CHICKEN: {"sold": 0, "dead": 0},
+            AnimalType.COW: {"sold": 0, "dead": 0}
         }
 
 
@@ -338,7 +340,7 @@ class GameWidget(BaseWindow):
         for animal_type in AnimalType:
             if animal_type != AnimalType.EMPTY:
                 self.stats[animal_type] = save_data["stats"].get(
-                    animal_type.name, {"sold": 0, "cleaned": 0}
+                    animal_type.name, {"sold": 0, "dead": 0}
                 )
 
         # Load fields
@@ -486,7 +488,7 @@ class GameWidget(BaseWindow):
         if reply == QMessageBox.StandardButton.Yes:
             if self.money >= cleanup_cost:
                 self.money -= cleanup_cost
-                self.stats[animal_type]["cleaned"] += 1
+                self.stats[animal_type]["dead"] += 1
                 field.remove_animal()
                 self.update()
                 self.save_game()
@@ -813,7 +815,10 @@ class GameWidget(BaseWindow):
 
     def save_global_stats(self):
         try:
-            with open(ADDON_DIR / "global_stats.json", 'w') as f:
+            profile_dir = Path(mw.pm.profileFolder())
+            save_path = profile_dir / "anki_ranch_game_global_stats.json"
+
+            with open(save_path, 'w') as f:
                 json.dump(self.global_stats.to_dict(), f)
         except Exception as e:
             print(f"Error saving global stats: {e}")
@@ -821,8 +826,10 @@ class GameWidget(BaseWindow):
     def load_global_stats(self):
         try:
             stats_file = ADDON_DIR / "global_stats.json"
-            if stats_file.exists():
-                with open(stats_file, 'r') as f:
+            profile_dir = Path(mw.pm.profileFolder())
+            save_path = profile_dir / "anki_ranch_game_global_stats.json"
+            if save_path.exists():
+                with open(save_path, 'r') as f:
                     data = json.load(f)
                     self.global_stats = GlobalStats.from_dict(data)
             else:

@@ -1,19 +1,20 @@
 import json
-from ..constants import ADDON_DIR
-from ..models.animal_type import AnimalType
-
-import json
 import os
 from pathlib import Path
+from aqt import mw  # Ankiのメインウィンドウを取得
 
 
 class SaveManager:
     @classmethod
+    def get_save_path(cls):
+        profile_dir = Path(mw.pm.profileFolder())  # プロファイルフォルダを取得
+        save_path = profile_dir / "anki_ranch_game_save.json"  # プロファイルフォルダ内に保存
+        return save_path
+
+    @classmethod
     def save_game(cls, game_state):
         try:
-            save_dir = Path(__file__).parent.parent
-            save_path = save_dir / "game_save.json"
-
+            save_path = cls.get_save_path()
 
             serializable_state = {
                 "money": game_state["money"],
@@ -48,8 +49,7 @@ class SaveManager:
     def load_game(cls):
         """load game state"""
         try:
-            save_dir = Path(__file__).parent.parent
-            save_path = save_dir / "game_save.json"
+            save_path = cls.get_save_path()
 
             if not save_path.exists():
                 print("No save file found")
