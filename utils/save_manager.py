@@ -7,8 +7,8 @@ from aqt import mw  # Ankiのメインウィンドウを取得
 class SaveManager:
     @classmethod
     def get_save_path(cls):
-        profile_dir = Path(mw.pm.profileFolder())  # プロファイルフォルダを取得
-        save_path = profile_dir / "anki_ranch_game_save.json"  # プロファイルフォルダ内に保存
+        profile_dir = Path(mw.pm.profileFolder())
+        save_path = profile_dir / "anki_farm_tycoon_save.json"
         return save_path
 
     @classmethod

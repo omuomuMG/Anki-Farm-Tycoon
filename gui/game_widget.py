@@ -35,7 +35,7 @@ class GameWidget(BaseWindow):
         window_width = STATS_PANEL_WIDTH + (CELL_SIZE * GRID_SIZE)
         window_height = CELL_SIZE * GRID_SIZE
         self.setGeometry(100, 100, window_width, window_height)
-        self.setWindowTitle("Anki Ranch")
+        self.setWindowTitle("Anki Farm Tycoon")
 
 
         self.breeds = {
@@ -154,14 +154,14 @@ class GameWidget(BaseWindow):
             if not field:
                 continue
 
-            # if animal does not exits field
+            # if animal does not exit field
             if not field.animal:
                 animal_type = employee.choose_animal_to_buy()
                 if self.money >= animal_type.price:
                     self.money -= animal_type.price
                     field.add_animal(Animal(animal_type, breed_level=self.breeds[animal_type].level))
 
-            # if animal does exits field
+            # if animal does exit field
             elif field.animal and employee.should_sell_animal(field.animal):
                 price = field.animal.get_sale_price()
                 salary = int(price * employee.get_salary_rate())
@@ -740,7 +740,7 @@ class GameWidget(BaseWindow):
     def save_global_stats(self):
         try:
             profile_dir = Path(mw.pm.profileFolder())
-            save_path = profile_dir / "anki_ranch_game_global_stats.json"
+            save_path = profile_dir / "anki_farm_tycoon_global_stats.json"
 
             with open(save_path, 'w') as f:
                 json.dump(self.global_stats.to_dict(), f)
@@ -750,7 +750,7 @@ class GameWidget(BaseWindow):
     def load_global_stats(self):
         try:
             profile_dir = Path(mw.pm.profileFolder())
-            save_path = profile_dir / "anki_ranch_game_global_stats.json"
+            save_path = profile_dir / "anki_farm_tycoon_global_stats.json"
             if save_path.exists():
                 with open(save_path, 'r') as f:
                     data = json.load(f)
