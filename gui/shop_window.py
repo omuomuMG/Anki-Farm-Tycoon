@@ -32,7 +32,7 @@ class ShopWindow(BaseWindow):
         self.main_layout.addWidget(title)
 
         self.money_label = QLabel(f"Your money: {self.parent.money} coins")
-        self.money_label.setStyleSheet("font-size: 14px; color: #2c3e50; margin: 5px;")
+        self.money_label.setStyleSheet("font-size: 14px; color: white; margin: 5px;")
         self.main_layout.addWidget(self.money_label)
 
         self.frames = {}
@@ -150,7 +150,8 @@ class ShopWindow(BaseWindow):
         return frame
 
     def update_display(self):
-        # self.cleanup_connections()  # 既存の接続をクリーンアップ
+        # self.cleanup_connections()
+        self.money_label.setStyleSheet("font-size: 14px; color: white; margin: 5px;")
         self.money_label.setText(f"Your money: {self.parent.money} coins")
 
         for frame in self.frames.values():
