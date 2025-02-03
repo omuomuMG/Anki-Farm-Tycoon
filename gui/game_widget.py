@@ -58,67 +58,6 @@ class GameWidget(BaseWindow):
         self.global_stats = GlobalStats()
         self.load_global_stats()
 
-        # self.shop_button = QPushButton("Shop", self)
-        # self.shop_button.clicked.connect(self.show_shop)
-        # self.shop_button.setStyleSheet("""
-        #         QPushButton {
-        #             background-color: #4CAF50;
-        #             color: white;
-        #             border: none;
-        #             padding: 5px;
-        #             border-radius: 3px;
-        #         }
-        #         QPushButton:hover {
-        #             background-color: #45a049;
-        #         }
-        #     """)
-        #
-        # self.employee_button = QPushButton("Employees", self)
-        # self.employee_button.clicked.connect(self.show_employee_management)
-        # self.employee_button.setStyleSheet("""
-        #         QPushButton {
-        #             background-color: #9b59b6;
-        #             color: white;
-        #             border: none;
-        #             padding: 5px;
-        #             border-radius: 3px;
-        #         }
-        #         QPushButton:hover {
-        #             background-color: #8e44ad;
-        #         }
-        #     """)
-        #
-        # # ResetButton
-        # self.reset_button = QPushButton("Reset Game", self)
-        # self.reset_button.clicked.connect(self.reset_game)
-        # self.reset_button.setStyleSheet("""
-        #     QPushButton {
-        #         background-color: #ff6b6b;
-        #         color: white;
-        #         border: none;
-        #         padding: 5px;
-        #         border-radius: 3px;
-        #     }
-        #     QPushButton:hover {
-        #         background-color: #ff5252;
-        #     }
-        # """)
-        #
-        # # StatisticsButton
-        # self.stats_button = QPushButton("Global Statistics", self)
-        # self.stats_button.clicked.connect(self.show_statistics)
-        # self.stats_button.setStyleSheet("""
-        #     QPushButton {
-        #         background-color: #4a90e2;
-        #         color: white;
-        #         border: none;
-        #         padding: 5px;
-        #         border-radius: 3px;
-        #     }
-        #     QPushButton:hover {
-        #         background-color: #357abd;
-        #     }
-        # """)
         self.setup_buttons()
 
     def setup_buttons(self):
@@ -825,7 +764,6 @@ class GameWidget(BaseWindow):
 
     def load_global_stats(self):
         try:
-            stats_file = ADDON_DIR / "global_stats.json"
             profile_dir = Path(mw.pm.profileFolder())
             save_path = profile_dir / "anki_ranch_game_global_stats.json"
             if save_path.exists():
