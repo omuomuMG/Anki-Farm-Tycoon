@@ -3,54 +3,92 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QGridLayout, QFrame, QMessageBox)
 from PyQt6.QtCore import Qt
+
+from .base_window import BaseWindow
 from ..models.animal_type import AnimalType
 
 
-class ShopWindow(QDialog):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.parent = parent
-        self.setWindowTitle("Animal Shop")
-        self.setMinimumWidth(400)
 
-        # メインレイアウトを保持
+class ShopWindow(BaseWindow):
+    # def __init__(self, parent=None):
+    #     super().__init__(parent)
+    #     self.parent = parent
+    #     self.setWindowTitle("Animal Shop")
+    #     self.setMinimumWidth(400)
+    #
+    #     # メインレイアウトを保持
+    #     self.main_layout = QVBoxLayout()
+    #     self.setLayout(self.main_layout)
+    #
+    #     self.setup_ui()
+
+    def setup_ui(self):  # initUIをsetup_uiに変更
         self.main_layout = QVBoxLayout()
         self.setLayout(self.main_layout)
 
-        self.initUI()
+        title_style = "font-size: 16px; font-weight: bold; margin: 10px;"
+        title = QLabel("🏪 Animal Shop")
+        title.setStyleSheet(title_style)
+        self.main_layout.addWidget(title)
+
+        self.money_label = QLabel(f"Your money: {self.parent.money} coins")
+        self.money_label.setStyleSheet("font-size: 14px; color: #2c3e50; margin: 5px;")
+        self.main_layout.addWidget(self.money_label)
+
+        self.frames = {}
+        for animal_type in [AnimalType.CHICKEN, AnimalType.PIG, AnimalType.COW]:
+            frame = self.create_animal_frame(animal_type)
+            self.frames[animal_type] = frame
+            self.main_layout.addWidget(frame)
+
+        close_btn = QPushButton("Close")
+        close_btn.setStyleSheet("""
+             QPushButton {
+                 background-color: #3498db;
+                 color: white;
+                 border: none;
+                 padding: 8px;
+                 border-radius: 4px;
+                 min-width: 80px;
+             }
+             QPushButton:hover {
+                 background-color: #2980b9;
+             }
+         """)
+        self.register_button(close_btn, self.close)
+        self.main_layout.addWidget(close_btn)
 
     def create_animal_frame(self, animal_type):
         breed = self.parent.breeds[animal_type]
-
         frame = QFrame()
         frame.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Raised)
         frame.setStyleSheet("""
-            QFrame {
-                background-color: #ffffff;
-                border: 1px solid #bdc3c7;
-                border-radius: 5px;
-                margin: 5px;
-                padding: 5px;
-            }
-        """)
+             QFrame {
+                 background-color: #ffffff;
+                 border: 1px solid #bdc3c7;
+                 border-radius: 5px;
+                 margin: 5px;
+                 padding: 5px;
+             }
+         """)
 
         layout = QVBoxLayout()
 
+        # ヘッダー
         header = QLabel(f"{animal_type.emoji} {animal_type.label}")
         header.setStyleSheet("font-size: 14px; font-weight: bold; color: #2c3e50;")
         layout.addWidget(header)
 
-
         info_layout = QGridLayout()
-
         info_text_style = """
-                QLabel {
-                    color: #2c3e50;
-                    font-size: 12px;
-                }
-            """
+             QLabel {
+                 color: #2c3e50;
+                 font-size: 12px;
+             }
+         """
 
         if breed.is_unlocked:
+            # レベルと生産確率の表示
             level_label = QLabel(f"Level: {breed.level}/{breed.max_level}")
             chance_label = QLabel(f"Production chance: {breed.get_production_chance() * 100:.1f}%")
             level_label.setStyleSheet(info_text_style)
@@ -58,24 +96,25 @@ class ShopWindow(QDialog):
             info_layout.addWidget(level_label, 0, 0)
             info_layout.addWidget(chance_label, 1, 0)
 
-
             if breed.level < breed.max_level:
                 upgrade_cost = breed.get_upgrade_cost()
                 upgrade_btn = QPushButton(f"Upgrade ({upgrade_cost} coins)")
                 upgrade_btn.setStyleSheet("""
-                    QPushButton {
-                        background-color: #2ecc71;
-                        color: white;
-                        border: none;
-                        padding: 5px;
-                        border-radius: 3px;
-                    }
-                    QPushButton:hover {
-                        background-color: #27ae60;
-                    }
-                """)
-                upgrade_btn.clicked.connect(
-                    lambda checked, at=animal_type: self.upgrade_breed(at))
+                     QPushButton {
+                         background-color: #2ecc71;
+                         color: white;
+                         border: none;
+                         padding: 5px;
+                         border-radius: 3px;
+                     }
+                     QPushButton:hover {
+                         background-color: #27ae60;
+                     }
+                 """)
+                self.register_button(
+                    upgrade_btn,
+                    lambda at=animal_type: self.upgrade_breed(at)
+                )
                 info_layout.addWidget(upgrade_btn, 0, 1)
             else:
                 max_level_label = QLabel("Maximum Level Reached!")
@@ -83,92 +122,47 @@ class ShopWindow(QDialog):
                 info_layout.addWidget(max_level_label, 0, 1)
         else:
             unlock_cost = breed.get_unlock_cost()
-
-            info_text_style = """
-                    QLabel {
-                        color: #2c3e50;
-                        font-size: 12px;
-                    }
-                """
-
             lockInfoLabel = QLabel("Status: Locked")
             lockInfoLabel.setStyleSheet(info_text_style)
-
             info_layout.addWidget(lockInfoLabel, 0, 0)
+
             unlock_btn = QPushButton(f"Unlock ({unlock_cost} coins)")
             unlock_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #e74c3c;
-                    color: white;
-                    border: none;
-                    padding: 5px;
-                    border-radius: 3px;
-                }
-                QPushButton:hover {
-                    background-color: #c0392b;
-                }
-            """)
-            unlock_btn.clicked.connect(
-                lambda checked, at=animal_type: self.unlock_breed(at))
+                 QPushButton {
+                     background-color: #e74c3c;
+                     color: white;
+                     border: none;
+                     padding: 5px;
+                     border-radius: 3px;
+                 }
+                 QPushButton:hover {
+                     background-color: #c0392b;
+                 }
+             """)
+            self.register_button(
+                unlock_btn,
+                lambda at=animal_type: self.unlock_breed(at)
+            )
             info_layout.addWidget(unlock_btn, 1, 0)
 
         layout.addLayout(info_layout)
         frame.setLayout(layout)
         return frame
 
-    def initUI(self):
-
-        title_style = "font-size: 16px; font-weight: bold; margin: 10px;"
-
-        title = QLabel("🏪 Animal Shop")
-        title.setStyleSheet(title_style)
-        self.main_layout.addWidget(title)
-
-
-        self.money_label = QLabel(f"Your money: {self.parent.money} coins")
-        self.money_label.setStyleSheet("font-size: 14px; color: white; margin: 5px;")
-        self.main_layout.addWidget(self.money_label)
-
-
-        self.frames = {}
-
-        for animal_type in [AnimalType.CHICKEN, AnimalType.PIG, AnimalType.COW]:
-            frame = self.create_animal_frame(animal_type)
-            self.frames[animal_type] = frame
-            self.main_layout.addWidget(frame)
-
-
-        close_btn = QPushButton("Close")
-        close_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3498db;
-                color: white;
-                border: none;
-                padding: 8px;
-                border-radius: 4px;
-                min-width: 80px;
-            }
-            QPushButton:hover {
-                background-color: #2980b9;
-            }
-        """)
-        close_btn.clicked.connect(self.close)
-        self.main_layout.addWidget(close_btn)
-
     def update_display(self):
+        # self.cleanup_connections()  # 既存の接続をクリーンアップ
         self.money_label.setText(f"Your money: {self.parent.money} coins")
-
 
         for frame in self.frames.values():
             frame.setParent(None)
             frame.deleteLater()
         self.frames.clear()
 
-
         for animal_type in [AnimalType.CHICKEN, AnimalType.PIG, AnimalType.COW]:
             frame = self.create_animal_frame(animal_type)
             self.frames[animal_type] = frame
             self.main_layout.insertWidget(self.main_layout.count() - 1, frame)
+
 
     def unlock_breed(self, animal_type):
         breed = self.parent.breeds[animal_type]

@@ -6,6 +6,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPainter, QColor, QCursor, QFont
 from aqt import gui_hooks
 
+from .base_window import BaseWindow
 from .employee_management_window import EmployeeManagementWindow
 from ..models.emploee import Employee
 from .animal_breed import AnimalBreed
@@ -24,7 +25,7 @@ from ..constants import (
 )
 
 
-class GameWidget(QWidget):
+class GameWidget(BaseWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -52,43 +53,125 @@ class GameWidget(QWidget):
 
         gui_hooks.reviewer_did_answer_card.append(self.called)
 
-
         self.global_stats = GlobalStats()
         self.load_global_stats()
 
+        # self.shop_button = QPushButton("Shop", self)
+        # self.shop_button.clicked.connect(self.show_shop)
+        # self.shop_button.setStyleSheet("""
+        #         QPushButton {
+        #             background-color: #4CAF50;
+        #             color: white;
+        #             border: none;
+        #             padding: 5px;
+        #             border-radius: 3px;
+        #         }
+        #         QPushButton:hover {
+        #             background-color: #45a049;
+        #         }
+        #     """)
+        #
+        # self.employee_button = QPushButton("Employees", self)
+        # self.employee_button.clicked.connect(self.show_employee_management)
+        # self.employee_button.setStyleSheet("""
+        #         QPushButton {
+        #             background-color: #9b59b6;
+        #             color: white;
+        #             border: none;
+        #             padding: 5px;
+        #             border-radius: 3px;
+        #         }
+        #         QPushButton:hover {
+        #             background-color: #8e44ad;
+        #         }
+        #     """)
+        #
+        # # ResetButton
+        # self.reset_button = QPushButton("Reset Game", self)
+        # self.reset_button.clicked.connect(self.reset_game)
+        # self.reset_button.setStyleSheet("""
+        #     QPushButton {
+        #         background-color: #ff6b6b;
+        #         color: white;
+        #         border: none;
+        #         padding: 5px;
+        #         border-radius: 3px;
+        #     }
+        #     QPushButton:hover {
+        #         background-color: #ff5252;
+        #     }
+        # """)
+        #
+        # # StatisticsButton
+        # self.stats_button = QPushButton("Global Statistics", self)
+        # self.stats_button.clicked.connect(self.show_statistics)
+        # self.stats_button.setStyleSheet("""
+        #     QPushButton {
+        #         background-color: #4a90e2;
+        #         color: white;
+        #         border: none;
+        #         padding: 5px;
+        #         border-radius: 3px;
+        #     }
+        #     QPushButton:hover {
+        #         background-color: #357abd;
+        #     }
+        # """)
+        self.setup_buttons()
+
+    def setup_buttons(self):
+        """ボタンの設定"""
+        # Shop button
         self.shop_button = QPushButton("Shop", self)
-        self.shop_button.clicked.connect(self.show_shop)
+        self.register_button(self.shop_button, self.show_shop)
         self.shop_button.setStyleSheet("""
-                QPushButton {
-                    background-color: #4CAF50;
-                    color: white;
-                    border: none;
-                    padding: 5px;
-                    border-radius: 3px;
-                }
-                QPushButton:hover {
-                    background-color: #45a049;
-                }
-            """)
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                padding: 5px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+        """)
 
+        # Employee button
         self.employee_button = QPushButton("Employees", self)
-        self.employee_button.clicked.connect(self.show_employee_management)
+        self.register_button(self.employee_button, self.show_employee_management)
         self.employee_button.setStyleSheet("""
-                QPushButton {
-                    background-color: #9b59b6;
-                    color: white;
-                    border: none;
-                    padding: 5px;
-                    border-radius: 3px;
-                }
-                QPushButton:hover {
-                    background-color: #8e44ad;
-                }
-            """)
+            QPushButton {
+                background-color: #9b59b6;
+                color: white;
+                border: none;
+                padding: 5px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #8e44ad;
+            }
+        """)
 
-        # ResetButton
+        # Statistics button
+        self.stats_button = QPushButton("Statistics", self)
+        self.register_button(self.stats_button, self.show_statistics)
+        self.stats_button.setStyleSheet("""
+            QPushButton {
+                background-color: #4a90e2;
+                color: white;
+                border: none;
+                padding: 5px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #357abd;
+            }
+        """)
+
+        # Reset button
         self.reset_button = QPushButton("Reset Game", self)
-        self.reset_button.clicked.connect(self.reset_game)
+        self.register_button(self.reset_button, self.reset_game)
         self.reset_button.setStyleSheet("""
             QPushButton {
                 background-color: #ff6b6b;
@@ -102,21 +185,6 @@ class GameWidget(QWidget):
             }
         """)
 
-        # StatisticsButton
-        self.stats_button = QPushButton("Global Statistics", self)
-        self.stats_button.clicked.connect(self.show_statistics)
-        self.stats_button.setStyleSheet("""
-            QPushButton {
-                background-color: #4a90e2;
-                color: white;
-                border: none;
-                padding: 5px;
-                border-radius: 3px;
-            }
-            QPushButton:hover {
-                background-color: #357abd;
-            }
-        """)
 
     def show_employee_management(self):
         """従業員管理ウィンドウを表示"""
@@ -219,7 +287,10 @@ class GameWidget(QWidget):
 
     def initialize_new_game(self):
         """Initialize a new game state"""
+
         self.money = INITIAL_MONEY
+        self.previous_money = INITIAL_MONEY
+
         self.unlocked_fields = 1
 
         self.stats = {
@@ -227,7 +298,24 @@ class GameWidget(QWidget):
             AnimalType.CHICKEN: {"sold": 0, "cleaned": 0},
             AnimalType.COW: {"sold": 0, "cleaned": 0}
         }
+
+
         self.employees={}
+
+        # 動物の品種情報を初期化
+        self.breeds = {
+            AnimalType.PIG: AnimalBreed(AnimalType.PIG),
+            AnimalType.CHICKEN: AnimalBreed(AnimalType.CHICKEN),
+            AnimalType.COW: AnimalBreed(AnimalType.COW)
+        }
+
+        self.breeds[AnimalType.CHICKEN].is_unlocked = True
+        self.breeds[AnimalType.PIG].is_unlocked = False
+        self.breeds[AnimalType.COW].is_unlocked = False
+
+        for breed in self.breeds.values():
+            breed.level = 0
+
 
         # Initialize fields
         self.fields = []
@@ -236,6 +324,9 @@ class GameWidget(QWidget):
             for x in range(GRID_SIZE):
                 row.append(Field(x, y))
             self.fields.append(row)
+
+        self.save_game()
+
 
     def load_saved_game(self, save_data):
         """Load game state from save data"""
