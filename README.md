@@ -1,4 +1,6 @@
 # Anki Farm Tycoon
+<img width="1090" alt="Anki Farm Tycoon Logo2" src="https://github.com/user-attachments/assets/479565f4-5544-4d39-990b-680020d5b24e" />
+
 Gamify your Anki. Become a billionaire by learning! 🐮🐔🐷
 
 # Demo
