@@ -31,3 +31,6 @@ An animal with maturity over 150% will die. You have to clean this cell, which c
 
 # Contribution
 Contributions are welcome! Feel free to submit issues or pull requests!!
+There is still a bug with the buttons...!
+Please help me!!!
+
