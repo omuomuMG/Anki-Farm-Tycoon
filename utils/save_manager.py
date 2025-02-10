@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from aqt import mw  # Ankiのメインウィンドウを取得
+from aqt import mw
 
 
 class SaveManager:

@@ -1,8 +1,6 @@
-# gui/shop_window.py
-
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
+from PyQt6.QtWidgets import ( QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QGridLayout, QFrame, QMessageBox)
-from PyQt6.QtCore import Qt
+
 
 from .base_window import BaseWindow
 from ..models.animal_type import AnimalType
@@ -10,17 +8,6 @@ from ..models.animal_type import AnimalType
 
 
 class ShopWindow(BaseWindow):
-    # def __init__(self, parent=None):
-    #     super().__init__(parent)
-    #     self.parent = parent
-    #     self.setWindowTitle("Animal Shop")
-    #     self.setMinimumWidth(400)
-    #
-    #     # メインレイアウトを保持
-    #     self.main_layout = QVBoxLayout()
-    #     self.setLayout(self.main_layout)
-    #
-    #     self.setup_ui()
 
     def setup_ui(self):  # initUIをsetup_uiに変更
         self.main_layout = QVBoxLayout()
