@@ -37,4 +37,4 @@ Contributions are welcome! Feel free to submit issues or pull requests!!
 
 # Anki Web
 [Anki Web](https://ankiweb.net/shared/info/20342773?cb=1739161568107)
-
+[Please Rate👍](https://ankiweb.net/shared/review/20342773)
