@@ -1,14 +1,15 @@
 # Anki Farm Tycoon
-<img width="1090" alt="Anki Farm Tycoon Logo2" src="https://github.com/user-attachments/assets/479565f4-5544-4d39-990b-680020d5b24e" />
+<img width="1090" alt="Anki Farm Tycoon Logo" src="https://github.com/user-attachments/assets/479565f4-5544-4d39-990b-680020d5b24e" />
 
 Gamify your Anki. Become a billionaire by learning! 🐮🐔🐷
 
 # Demo
-![画面収録 2025-02-10 12 49 05](https://github.com/user-attachments/assets/7abf4abd-638f-4e9a-bd7c-4b4b76b58e9f)
+![Anki Farm Tycoon Demo gif](https://github.com/user-attachments/assets/7abf4abd-638f-4e9a-bd7c-4b4b76b58e9f)
 
 
 
 ## How to Use
+- Tools > Anki Faram Tycoon
 - Click a cell to buy an animal.
 - You can sell animals that have over 50% maturity by clicking the cell.
 - Unlock new species and level up in the shop window.
