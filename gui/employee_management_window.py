@@ -1,4 +1,3 @@
-# gui/employee_management_window.py
 from PyQt6.QtWidgets import (QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QGridLayout, QFrame, QScrollArea,
                              QWidget, QMessageBox)
