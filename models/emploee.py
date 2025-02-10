@@ -1,7 +1,6 @@
 import random
-
-from ..utils.save_manager import SaveManager
 from ..constants import GRID_SIZE
+from ..utils.save_manager import SaveManager
 from .animal_type import AnimalType
 
 class Employee:
@@ -23,7 +22,7 @@ class Employee:
 
 
     def get_salary_rate(self) -> float:
-            base_rate = 0.5
+            base_rate = 0.3
             level_reduction = 0.03
             return max(0.1, base_rate - (self.level - 1) * level_reduction)
 
