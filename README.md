@@ -41,7 +41,10 @@ An animal with maturity over 150% will die. You have to clean this cell, which c
 
 - I do no have enough money to buy animals and remove a grave.\
   It is game over. Now I am considering relief system.
-
+  
+- What is the production chance?\
+Production chance indicates the probability of the animal's production of milk, eggs, etc. The pig's product is that it increases the growth of the surrounding animals.
+Milk sells for a relatively high price, but the production chance is low, eggs sell relatively cheaply but have a high production chance, etc.
 
 
 # Contribution
