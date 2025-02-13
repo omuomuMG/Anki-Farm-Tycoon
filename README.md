@@ -8,7 +8,7 @@ Gamify your Anki. Become a billionaire by learning! 🐮🐔🐷
 
 
 
-## How to Use
+## How to Play
 - Tools > Anki Faram Tycoon
 - Click a cell to buy an animal.
 - **If you answer cards, animals in the filed will grow!!**
@@ -37,10 +37,10 @@ An animal with maturity over 150% will die. You have to clean this cell, which c
 
 # FAQ
 - How can I earn coin?\
-  By sellong animals or animals production (milks or eggs).
+  By selling animals or animal's production (milks or eggs).
 
-- I do no have enogh money to buy animals and remove a grave.\
-  It is game over. Now I am consindering relief system
+- I do no have enough money to buy animals and remove a grave.\
+  It is game over. Now I am considering relief system.
 
 
 
