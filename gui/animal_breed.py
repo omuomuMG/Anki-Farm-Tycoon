@@ -5,8 +5,8 @@ class AnimalBreed:
     def __init__(self, animal_type: AnimalType):
         self.animal_type = animal_type
         self.level = 0
-        self.is_unlocked = animal_type == AnimalType.CHICKEN  # 鶏は最初からアンロック
-        self.max_level = 10
+        self.is_unlocked = animal_type == AnimalType.CHICKEN
+        self.max_level = 20
 
     def get_unlock_cost(self) -> int:
         costs = {
