@@ -725,7 +725,10 @@ class GameWidget(BaseWindow):
             self.money += total_production
             self.global_stats.total_money_earned += total_production
 
+        bonus_earning = random.randint(0,2)
 
+        self.money += bonus_earning
+        self.global_stats.total_money_earned += bonus_earning
 
         self.global_stats.update_money_record(self.money)
         self.global_stats.update_day_count()
