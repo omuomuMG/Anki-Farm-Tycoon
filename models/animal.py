@@ -60,6 +60,3 @@ class Animal:
 
     def can_sell(self):
         return not self.is_dead and self.growth >= 50
-
-    def get_cleanup_cost(self):
-        return int(self.animal_type.price * 0.5)

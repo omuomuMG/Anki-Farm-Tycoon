@@ -405,34 +405,7 @@ class GameWidget(BaseWindow):
         action = menu.exec(QCursor.pos())
         return action.data() if action else None
 
-    def try_cleanup_dead_animal(self, field):
-        """Handle dead animal cleanup"""
-        if not field.animal or not field.animal.is_dead:
-            return
 
-        cleanup_cost = field.animal.get_cleanup_cost()
-        animal_type = field.animal.animal_type
-
-        reply = QMessageBox.question(
-            self,
-            'Remove grave',
-            f'Do you want to say goodbye to {animal_type.label} and remove grave for {cleanup_cost} coins?',
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-
-        if reply == QMessageBox.StandardButton.Yes:
-            if self.money >= cleanup_cost:
-                self.money -= cleanup_cost
-                self.stats[animal_type]["dead"] += 1
-                field.remove_animal()
-                self.update()
-                self.save_game()
-            else:
-                QMessageBox.warning(
-                    self,
-                    "Cannot remove grave",
-                    f"Not enough money!\nRequired: {cleanup_cost} coins"
-                )
 
     def try_sell_animal(self, field):
         """Handle animal selling"""
@@ -671,10 +644,7 @@ class GameWidget(BaseWindow):
                             )
             elif event.button() == Qt.MouseButton.RightButton:
                 if field.animal:
-                    if field.animal.is_dead:
-                        self.try_cleanup_dead_animal(field)
-                    else:
-                        self.try_sell_animal(field)
+                    self.try_sell_animal(field)
 
 
 
@@ -720,6 +690,13 @@ class GameWidget(BaseWindow):
                     if production > 0:
                         total_production += production
                         print(f"Production: {production} coins")
+
+                    elif field.animal.is_dead:
+                        remove_probability = random.randint(0,15)
+                        if remove_probability == 0:
+                            self.stats[field.animal.animal_type]["dead"] += 1
+                            field.remove_animal()
+
 
         if total_production > 0:
             self.money += total_production
