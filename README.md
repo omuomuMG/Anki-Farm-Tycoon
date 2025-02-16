@@ -44,10 +44,8 @@ When you answer cards, you can get bonus coin at certain probability.
 
 # FAQ
 - How can I earn coin?\
-  By selling animals or animal's production (milks or eggs).
-
-- I do no have enough money to buy animals and remove a grave.\
-  It is game over. Now I am considering relief system.
+  By selling animals or animal's production (milks or eggs).\
+   <*new feature*>  You can also earn coin by answering cards at certain probability.
   
 - What is the production chance?\
 Production chance indicates the probability of the animal's production of milk, eggs, etc. The pig's product is that it increases the growth of the surrounding animals.
