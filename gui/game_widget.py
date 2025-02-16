@@ -63,10 +63,29 @@ class GameWidget(BaseWindow):
 
     def setup_buttons(self):
 
+        # Rate button
+        self.rate_button = QPushButton("Rate 👍", self)
+        self.rate_button.clicked.connect(lambda: QDesktopServices.openUrl(
+            QUrl("https://ankiweb.net/shared/review/20342773")))
+        self.rate_button.setStyleSheet("""
+                    QPushButton {
+                        background-color: #3434fd;
+                        color: white;
+                        border: none;
+                        padding: 5px;
+                        border-radius: 3px;
+                    }
+                    QPushButton:hover {
+                        background-color: #0101a6;
+                    }
+                    
+                """)
+
+
         # Instruction button
-        self.instruction = QPushButton("Instruction", self)
-        self.instruction.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/omuomuMG/Anki-Farm-Tycoon/blob/master/Instruction.md")))
-        self.instruction.setStyleSheet("""
+        self.instruction_button = QPushButton("Instruction", self)
+        self.instruction_button.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/omuomuMG/Anki-Farm-Tycoon/blob/master/Instruction.md")))
+        self.instruction_button.setStyleSheet("""
             QPushButton {
                 background-color: #c2c821;
                 color: white;
@@ -78,6 +97,8 @@ class GameWidget(BaseWindow):
                 background-color: #616410;
             }
         """)
+
+
 
         # Shop button
         self.shop_button = QPushButton("Shop", self)
@@ -621,11 +642,16 @@ class GameWidget(BaseWindow):
                             icon_size,
                             self.resources['employee_icon']
                         )
-            self.instruction.setGeometry(10, self.height() - 200, 100, 30)
             self.shop_button.setGeometry(10, self.height() - 160, 100, 30)  # ShopButton
             self.employee_button.setGeometry(10, self.height() - 120, 100, 30) # employeeButton
             self.stats_button.setGeometry(10, self.height() - 80, 100, 30)  # StatisticsButton
             self.reset_button.setGeometry(10, self.height() - 40, 100, 30)  # ResetButton
+            self.instruction_button.setGeometry(130, self.height() - 40, 100, 30)
+            self.rate_button.setGeometry(130, self.height() - 80, 100, 30)
+
+
+
+
 
 
     def mousePressEvent(self, event):
