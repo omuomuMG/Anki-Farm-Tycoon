@@ -18,11 +18,11 @@ class Animal:
         self.breed_level = breed_level
 
     def get_production_chance(self) -> float:
-        """生産確率を計算"""
+        """calculate production chance"""
         base_chance = {
-            AnimalType.PIG: 0.01,  # 1%
+            AnimalType.PIG: 0.05,  # 5%
             AnimalType.CHICKEN: 0.10,  # 10%
-            AnimalType.COW: 0.02  # 2%
+            AnimalType.COW: 0.05  # 5%
         }.get(self.animal_type, 0)
 
         # レベルごとに1%ずつ上昇
@@ -41,8 +41,6 @@ class Animal:
     def produce(self) -> int:
         if self.is_dead:
             return 0
-
-
 
         if random.random() < self.get_production_chance():
             self.has_product = True
