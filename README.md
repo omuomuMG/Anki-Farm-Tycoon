@@ -7,9 +7,6 @@ Gamify your Anki. Become a billionaire by learning! 🐮🐔🐷
 ![Anki Farm Tycoon Demo gif](https://github.com/user-attachments/assets/7abf4abd-638f-4e9a-bd7c-4b4b76b58e9f)
 
 
-
-
-
 # What is it????
 It is a game that makes learning more fun!
 If you answer cards, animals will grow.
@@ -59,6 +56,7 @@ If you level up your animal, animal can made produce production.
 Employee sell and buy animals automatically.
 But You have to pay a few percent of the money you make from selling the animals as a salary.
 
+# [Instruction File](https://github.com/omuomuMG/Anki-Farm-Tycoon/blob/master/Instruction.md)
 
 # Update
 - Specification changes to the ability to release fields of dead animals.\
@@ -82,6 +80,7 @@ Contributions are welcome! Feel free to submit issues or pull requests!!
 **There is still a bug with the buttons...!**
 **Please help me!!!**
 
-# Anki Web
+# Links
 [Anki Web](https://ankiweb.net/shared/info/20342773?cb=1739161568107)\
-[Please Rate👍](https://ankiweb.net/shared/review/20342773)
+[Please Rate👍](https://ankiweb.net/shared/review/20342773)\
+[Instruction](https://github.com/omuomuMG/Anki-Farm-Tycoon/blob/master/Instruction.md)
