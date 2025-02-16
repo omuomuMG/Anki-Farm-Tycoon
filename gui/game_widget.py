@@ -2,8 +2,8 @@ import json
 import random
 
 from PyQt6.QtWidgets import QWidget, QMenu, QMessageBox, QPushButton
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPainter, QColor, QCursor, QFont
+from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtGui import QPainter, QColor, QCursor, QFont, QDesktopServices
 from aqt import gui_hooks
 
 from .base_window import BaseWindow
@@ -60,8 +60,25 @@ class GameWidget(BaseWindow):
 
         self.setup_buttons()
 
+
     def setup_buttons(self):
-        """ボタンの設定"""
+
+        # Instruction button
+        self.instruction = QPushButton("Instruction", self)
+        self.instruction.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/omuomuMG/Anki-Farm-Tycoon/blob/master/Instruction.md")))
+        self.instruction.setStyleSheet("""
+            QPushButton {
+                background-color: #c2c821;
+                color: white;
+                border: none;
+                padding: 5px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #616410;
+            }
+        """)
+
         # Shop button
         self.shop_button = QPushButton("Shop", self)
         self.register_button(self.shop_button, self.show_shop)
@@ -604,7 +621,7 @@ class GameWidget(BaseWindow):
                             icon_size,
                             self.resources['employee_icon']
                         )
-
+            self.instruction.setGeometry(10, self.height() - 200, 100, 30)
             self.shop_button.setGeometry(10, self.height() - 160, 100, 30)  # ShopButton
             self.employee_button.setGeometry(10, self.height() - 120, 100, 30) # employeeButton
             self.stats_button.setGeometry(10, self.height() - 80, 100, 30)  # StatisticsButton
