@@ -35,6 +35,13 @@ Higher-level managers work for a lower salary.
 An animal with maturity over 150% will die. You have to clean this cell, which costs coins.
 
 
+# Update
+- Specification changes to the ability to release fields of dead animals.\
+Changed so that answering a question opens up a field with a certain probability.
+ 
+- Add bonus coin system\
+When you answer cards, you can get bonus coin at certain probability.
+
 # FAQ
 - How can I earn coin?\
   By selling animals or animal's production (milks or eggs).
