@@ -1,6 +1,14 @@
-
 # Grow Animals by Answering Cards!!
 **If you answer cards, animals in the filed will grow!!**
+
+## How to Play
+- Tools > Anki Farm Tycoon
+- Click a cell to buy an animal.
+- **If you answer cards, animals in the filed will grow!!**
+- Sold animals
+- You can sell animals that have over 50% maturity by clicking the cell.
+- Unlock new species and level up in the shop window.
+
 
 # How to Earn Money
 - Sell animal
