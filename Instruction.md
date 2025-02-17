@@ -39,4 +39,15 @@ Employee sell and buy animals automatically.
 But You have to pay a few percent of the money you make from selling the animals as a salary.
 
 
+# FAQ
+- How can I earn coin?\
+  By selling animals or animal's production (milks or eggs).\
+   <*new feature*>  You can also earn coin by answering cards at certain probability.
+  
+- What is the production chance?\
+Production chance indicates the probability of the animal's production of milk, eggs, etc. The pig's product is that it increases the growth of the surrounding animals.
+Milk sells for a relatively high price, but the production chance is low, eggs sell relatively cheaply but have a high production chance, etc.
+
+
+
 [Please Rate👍](https://ankiweb.net/shared/review/20342773)
