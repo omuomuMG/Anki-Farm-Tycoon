@@ -25,7 +25,7 @@ class EmployeeManagementWindow(BaseWindow):
         self.main_layout.addWidget(title)
 
         self.money_label = QLabel(f"Money: {self.parent.money} coins")
-        self.money_label.setStyleSheet("font-size: 14px; color: white; margin: 5px;")
+        self.money_label.setStyleSheet("font-size: 14px; color: grey; margin: 5px;")
         self.main_layout.addWidget(self.money_label)
 
 

@@ -19,8 +19,10 @@ class ShopWindow(BaseWindow):
         self.main_layout.addWidget(title)
 
         self.money_label = QLabel(f"Your money: {self.parent.money} coins")
-        self.money_label.setStyleSheet("font-size: 14px; color: white; margin: 5px;")
+        self.money_label.setStyleSheet("font-size: 14px; color: grey; margin: 5px;")
         self.main_layout.addWidget(self.money_label)
+
+
 
         self.frames = {}
         for animal_type in [AnimalType.CHICKEN, AnimalType.PIG, AnimalType.COW]:
@@ -75,7 +77,6 @@ class ShopWindow(BaseWindow):
          """
 
         if breed.is_unlocked:
-            # レベルと生産確率の表示
             level_label = QLabel(f"Level: {breed.level}/{breed.max_level}")
             chance_label = QLabel(f"Production chance: {breed.get_production_chance() * 100:.1f}%")
             level_label.setStyleSheet(info_text_style)
