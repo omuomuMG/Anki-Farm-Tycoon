@@ -8,7 +8,7 @@ class SaveManager:
     @classmethod
     def get_save_path(cls):
         profile_dir = Path(mw.pm.profileFolder())
-        save_path = profile_dir / "collection.media/anki_farm_tycoon_save.json"
+        save_path = profile_dir / "collection.media/_anki_farm_tycoon_save.json"
         return save_path
 
     # Save location for version 1.0.0
