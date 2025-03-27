@@ -33,19 +33,19 @@ class StatisticsWindow(QDialog):
         animals.setStyleSheet(section_style)
         layout.addWidget(animals)
 
+        chicken_stats = QLabel("🐔 Chicken:")
+        chicken_stats.setStyleSheet(stat_style)
+        layout.addWidget(chicken_stats)
+        layout.addWidget(QLabel(f"    Sold: {global_stats.total_animals_sold_by_type.get('CHICKEN', 0)}"))
+        layout.addWidget(QLabel(f"    Deaths: {global_stats.total_animals_died_by_type.get('CHICKEN', 0)}"))
+        layout.addWidget(QLabel(f"    Eggs : {global_stats.total_animals_production_by_type.get('CHICKEN', 0)}"))
 
         pig_stats = QLabel("🐷 Pig:")
         pig_stats.setStyleSheet(stat_style)
         layout.addWidget(pig_stats)
         layout.addWidget(QLabel(f"    Sold: {global_stats.total_animals_sold_by_type.get('PIG', 0)}"))
         layout.addWidget(QLabel(f"    Deaths: {global_stats.total_animals_died_by_type.get('PIG', 0)}"))
-
-
-        chicken_stats = QLabel("🐔 Chicken:")
-        chicken_stats.setStyleSheet(stat_style)
-        layout.addWidget(chicken_stats)
-        layout.addWidget(QLabel(f"    Sold: {global_stats.total_animals_sold_by_type.get('CHICKEN', 0)}"))
-        layout.addWidget(QLabel(f"    Deaths: {global_stats.total_animals_died_by_type.get('CHICKEN', 0)}"))
+        layout.addWidget(QLabel(f"    Mysterious Light : {global_stats.total_animals_production_by_type.get('PIG', 0)}"))
 
 
         cow_stats = QLabel("🐮 Cow:")
@@ -53,6 +53,8 @@ class StatisticsWindow(QDialog):
         layout.addWidget(cow_stats)
         layout.addWidget(QLabel(f"    Sold: {global_stats.total_animals_sold_by_type.get('COW', 0)}"))
         layout.addWidget(QLabel(f"    Deaths: {global_stats.total_animals_died_by_type.get('COW', 0)}"))
+        layout.addWidget(QLabel(f"    Milks : {global_stats.total_animals_production_by_type.get('COW', 0)}"))
+
 
 
         totals = QLabel("📈 Totals")

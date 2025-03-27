@@ -10,6 +10,9 @@ class GlobalStats:
         self.highest_day = 0
         self.current_day = 0
         self.answers_count = 0
+        self.total_production_of_chicken = 0
+        self.total_production_of_pig = 0
+        self.total_production_of_cow = 0
 
         # 動物タイプごとの統計を追加
         self.total_animals_sold_by_type = {
@@ -18,6 +21,12 @@ class GlobalStats:
             'COW': 0
         }
         self.total_animals_died_by_type = {
+            'PIG': 0,
+            'CHICKEN': 0,
+            'COW': 0
+        }
+
+        self.total_animals_production_by_type = {
             'PIG': 0,
             'CHICKEN': 0,
             'COW': 0
@@ -43,7 +52,8 @@ class GlobalStats:
             "current_day": self.current_day,
             "answers_count": self.answers_count,
             "total_animals_sold_by_type": self.total_animals_sold_by_type,
-            "total_animals_died_by_type": self.total_animals_died_by_type
+            "total_animals_died_by_type": self.total_animals_died_by_type,
+            "total_animals_production_by_type": self.total_animals_production_by_type
         }
 
     @classmethod
@@ -60,6 +70,9 @@ class GlobalStats:
             'PIG': 0, 'CHICKEN': 0, 'COW': 0
         })
         stats.total_animals_died_by_type = data.get("total_animals_died_by_type", {
+            'PIG': 0, 'CHICKEN': 0, 'COW': 0
+        })
+        stats.total_animals_production_by_type = data.get("total_animals_production_by_type", {
             'PIG': 0, 'CHICKEN': 0, 'COW': 0
         })
         return stats
