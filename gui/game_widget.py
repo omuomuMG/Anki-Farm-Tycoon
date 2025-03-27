@@ -732,7 +732,6 @@ class GameWidget(BaseWindow):
                     production = field.animal.produce()
                     if production > 0:
                         total_production += production
-                        print(f"Production: {production} coins")
                         self.global_stats.total_animals_production_by_type[field.animal.animal_type.name] += 1
 
                     elif field.animal.is_dead:

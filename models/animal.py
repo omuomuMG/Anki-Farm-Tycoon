@@ -49,7 +49,8 @@ class Animal:
             elif self.animal_type == AnimalType.COW:
                 return 50
             elif self.animal_type == AnimalType.PIG:
-                return 0
+                self.grow()
+                return 1
         return 0
 
     def get_sale_price(self):
