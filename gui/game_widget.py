@@ -737,7 +737,10 @@ class GameWidget(BaseWindow):
                     elif field.animal.is_dead:
                         remove_probability = random.randint(0,15)
                         if remove_probability == 0:
+                            # Write to _anki_farm_tycoon_save.json. # Issue 19
                             self.stats[field.animal.animal_type]["dead"] += 1
+                            # Copy to anki_farm_tycoon_global_stats.json.
+                            self.global_stats.total_animals_died_by_type[field.animal.animal_type.name] = self.stats[field.animal.animal_type]["dead"]
                             field.remove_animal()
 
 
