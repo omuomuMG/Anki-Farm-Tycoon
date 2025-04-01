@@ -16,6 +16,8 @@ class Employee:
 
     @staticmethod
     def calculate_hire_cost(x: int, y: int) -> int:
+        if y == 0 and x == 0:
+            return 0
         position = y * GRID_SIZE + x
         base_cost = 2000
         return int(base_cost + (300 * position))
