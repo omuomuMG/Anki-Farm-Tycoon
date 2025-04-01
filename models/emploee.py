@@ -18,7 +18,7 @@ class Employee:
     def calculate_hire_cost(x: int, y: int) -> int:
         position = y * GRID_SIZE + x
         base_cost = 2000
-        return int(base_cost * (1.5 ** position))
+        return int(base_cost + (300 * position))
 
 
     def get_salary_rate(self) -> float:
@@ -27,10 +27,10 @@ class Employee:
             return max(0.1, base_rate - (self.level - 1) * level_reduction)
 
     def get_upgrade_cost(self) -> int:
-        return 1000 * self.level * 2
+        return 1000 + self.level * 100
 
     def get_hire_cost(self) -> int:
-        return 2000 * (self.position + 1)
+        return (self.position + 1) * 100
 
     def should_sell_animal(self, animal) -> bool:
         if not animal or animal.is_dead:
