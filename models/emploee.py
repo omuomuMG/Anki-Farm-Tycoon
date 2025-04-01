@@ -29,9 +29,6 @@ class Employee:
     def get_upgrade_cost(self) -> int:
         return 1000 + self.level * 100
 
-    def get_hire_cost(self) -> int:
-        return (self.position + 1) * 100
-
     def should_sell_animal(self, animal) -> bool:
         if not animal or animal.is_dead:
             return False
