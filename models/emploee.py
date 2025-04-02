@@ -1,3 +1,4 @@
+import os
 import random
 from ..constants import GRID_SIZE
 from ..utils.save_manager import SaveManager
@@ -13,6 +14,11 @@ class Employee:
         self.enabled = True
         self.total_earnings = 0
         self.total_sales = 0
+
+        self.can_buy_chicken = True
+        self.can_buy_pig = True
+        self.can_buy_cow = True
+        self.buy_randomly = True
 
     @staticmethod
     def calculate_hire_cost(x: int, y: int) -> int:
@@ -39,23 +45,119 @@ class Employee:
         return animal.growth >= optimal_growth
 
     def choose_animal_to_buy(self) -> AnimalType:
+        """Return which animal type this employee should buy"""
         save_data = SaveManager.load_game()
 
         pig = save_data["breeds"].get(
             "PIG", {"level": 0, "is_unlocked": False}
         )
-
         cow = save_data["breeds"].get(
             "COW", {"level": 0, "is_unlocked": False}
         )
+        
 
-        choices = [AnimalType.CHICKEN] * self.level
+        if self.buy_randomly:
+            choices = []
+            print(f"Employee {self.name} is choosing an animal to buy randomly.")
+            choices.append(AnimalType.CHICKEN)  
+            
+            if pig["is_unlocked"]:
+                choices.append(AnimalType.PIG)
+                print("Pig is added")
+                
+            if cow["is_unlocked"]:
+                choices.append(AnimalType.COW)
+                print("Cow is added")
+            
+            import time
+            random.seed(int(time.time()))
 
-        if pig["is_unlocked"]:
-            choices += [AnimalType.PIG] * self.level
-
-        if cow["is_unlocked"]:
-            choices += [AnimalType.COW] * self.level
-
-        return random.choice(choices)
-
+            if len(choices) == 1:
+                choice = choices[0]
+            else:
+                index = random.randint(0, len(choices) - 1)
+                choice = choices[index]
+            return choice
+        
+        # if self.buy_randomly is False
+        if self.can_buy_pig and pig["is_unlocked"]:
+            return AnimalType.PIG
+        
+        if self.can_buy_cow and cow["is_unlocked"]:
+            return AnimalType.COW
+        
+        if self.can_buy_chicken:
+            return AnimalType.CHICKEN
+        
+        return AnimalType.CHICKEN
+        
+    def update_buying_preferences(self, chicken: bool, pig: bool, cow: bool):
+        """Update which animals this employee can buy"""
+        self.can_buy_chicken = chicken
+        self.can_buy_pig = pig
+        self.can_buy_cow = cow
+        
+        # Save the updated preferences
+        self.save_preferences()
+        
+    def save_preferences(self):
+        """Save employee preferences to the save file"""
+        save_data = SaveManager.load_game()
+        
+        if "employees" not in save_data:
+            save_data["employees"] = {}
+            
+        employee_id = self.name
+        
+        if employee_id in save_data["employees"]:
+            save_data["employees"][employee_id].update({
+                "can_buy_chicken": self.can_buy_chicken,
+                "can_buy_pig": self.can_buy_pig,
+                "can_buy_cow": self.can_buy_cow,
+                "buy_randomly": self.buy_randomly
+            })
+        else:
+            save_data["employees"][employee_id] = {
+                "name": self.name,
+                "x": self.x,
+                "y": self.y,
+                "level": self.level,
+                "enabled": self.enabled,
+                "total_earnings": self.total_earnings,
+                "total_sales": self.total_sales,
+                "can_buy_chicken": self.can_buy_chicken,
+                "can_buy_pig": self.can_buy_pig,
+                "can_buy_cow": self.can_buy_cow,
+                "buy_randomly": self.buy_randomly
+            }
+        
+        SaveManager.save_game(save_data)
+        
+    def load_preferences(self):
+        """Load employee preferences from the save file"""
+        save_data = SaveManager.load_game()
+        
+        if "employees" not in save_data:
+            return
+            
+        employee_id = self.name
+        
+        if employee_id in save_data["employees"]:
+            emp_data = save_data["employees"][employee_id]
+            
+            self.level = emp_data.get("level", self.level)
+            self.enabled = emp_data.get("enabled", self.enabled)
+            self.total_earnings = emp_data.get("total_earnings", self.total_earnings)
+            self.total_sales = emp_data.get("total_sales", self.total_sales)
+            
+            
+            self.buy_randomly = emp_data.get("buy_randomly", True)
+            
+            if not self.buy_randomly:
+                self.can_buy_chicken = emp_data.get("can_buy_chicken", False)
+                self.can_buy_pig = emp_data.get("can_buy_pig", False)
+                self.can_buy_cow = emp_data.get("can_buy_cow", False)
+            else:
+                self.can_buy_chicken = False
+                self.can_buy_pig = False
+                self.can_buy_cow = False

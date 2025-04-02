@@ -2,6 +2,7 @@ import json
 import os
 from pathlib import Path
 from aqt import mw
+from ..constants import VERSION
 
 
 class SaveManager:
@@ -24,7 +25,7 @@ class SaveManager:
             save_path = cls.get_save_path()
 
             serializable_state = {
-                "Version":"2.0.0",
+                "Version": VERSION,
                 "money": game_state["money"],
                 "previous_money": game_state["previous_money"],
                 "unlocked_fields": game_state["unlocked_fields"],
