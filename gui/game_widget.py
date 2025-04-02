@@ -1,5 +1,6 @@
 import json
 import random
+import copy
 
 from PyQt6.QtWidgets import QWidget, QMenu, QMessageBox, QPushButton
 from PyQt6.QtCore import Qt, QUrl
@@ -21,7 +22,7 @@ from ..utils.save_manager import SaveManager
 from ..gui.paint_handler import PaintHandler
 from ..constants import (
     CELL_SIZE, STATS_PANEL_WIDTH, GRID_SIZE,
-    INITIAL_MONEY, BASE_FIELD_PRICE, FIELD_PRICE_MULTIPLIER, ADDON_DIR
+    INITIAL_MONEY, BASE_FIELD_PRICE, FIELD_PRICE_MULTIPLIER, ADDON_DIR, VERSION
 )
 from pathlib import Path
 from aqt import mw
@@ -224,7 +225,19 @@ class GameWidget(BaseWindow):
         field_number = y * GRID_SIZE + x
         name = chr(65 + field_number)
         employee = Employee(name=name, x=x, y=y)
+        
+        # Set default animal buying preferences (default to chicken only)
+        employee.buy_randomly = True
+        employee.can_buy_chicken = False
+        employee.can_buy_pig = False
+        employee.can_buy_cow = False
+        
+        # Add to employees dictionary
         self.employees[name] = employee
+        
+        # Save employee preferences to ensure they're stored in JSON
+        employee.save_preferences()
+        
         self.update()
         return True
 
@@ -375,10 +388,17 @@ class GameWidget(BaseWindow):
     def save_game(self):
         previous_money = INITIAL_MONEY
         save_data = SaveManager.load_game()
+        
+        
+        existing_employees = {}
+        if save_data and "employees" in save_data:
+            existing_employees = save_data["employees"]
+        
         if save_data and "money" in save_data:
             previous_money = save_data["money"]
 
         game_state = {
+            "Version": VERSION,
             "money": self.money,
             "previous_money": previous_money,
             "unlocked_fields": self.unlocked_fields,
@@ -411,21 +431,63 @@ class GameWidget(BaseWindow):
                 for animal_type, breed in self.breeds.items()
                 if animal_type != AnimalType.EMPTY
             },
-            "employees": {
-                emp.name: {
-                    "name": emp.name,
-                    "x": emp.x,
-                    "y": emp.y,
-                    "level": emp.level,
-                    "enabled": emp.enabled,
-                    "total_earnings": emp.total_earnings,
-                    "total_sales": emp.total_sales
-                }
-                for emp in self.employees.values()
-            }
+            "employees": {}
         }
-        SaveManager.save_game(game_state)
+        
+        
+        if existing_employees:
+            game_state["employees"] = copy.deepcopy(existing_employees)
+        
+        
+        for emp_name, employee in self.employees.items():
 
+            employee_data = {
+                "name": employee.name,
+                "x": employee.x,
+                "y": employee.y,
+                "level": employee.level,
+                "enabled": employee.enabled,
+                "total_earnings": employee.total_earnings,
+                "total_sales": employee.total_sales
+            }
+            
+            # if the employee already exists in the save data
+            if emp_name in existing_employees:
+                existing_emp = existing_employees[emp_name]
+                
+                
+                if "buy_randomly" in existing_emp:
+                    employee_data["buy_randomly"] = existing_emp["buy_randomly"]
+                else:
+                    employee_data["buy_randomly"] = getattr(employee, "buy_randomly", True)
+                    
+                
+                if "can_buy_chicken" in existing_emp:
+                    employee_data["can_buy_chicken"] = existing_emp["can_buy_chicken"]
+                else:
+                    employee_data["can_buy_chicken"] = getattr(employee, "can_buy_chicken", False)
+                    
+                if "can_buy_pig" in existing_emp:
+                    employee_data["can_buy_pig"] = existing_emp["can_buy_pig"]
+                else:
+                    employee_data["can_buy_pig"] = getattr(employee, "can_buy_pig", False)
+                    
+                if "can_buy_cow" in existing_emp:
+                    employee_data["can_buy_cow"] = existing_emp["can_buy_cow"]
+                else:
+                    employee_data["can_buy_cow"] = getattr(employee, "can_buy_cow", False)
+            else:
+                # if the employee is new, set default values
+                employee_data["buy_randomly"] = getattr(employee, "buy_randomly", True)
+                employee_data["can_buy_chicken"] = getattr(employee, "can_buy_chicken", False)
+                employee_data["can_buy_pig"] = getattr(employee, "can_buy_pig", False)
+                employee_data["can_buy_cow"] = getattr(employee, "can_buy_cow", False)
+                
+        
+            game_state["employees"][emp_name] = employee_data
+
+        
+        SaveManager.save_game(game_state)
 
     def show_animal_selection_dialog(self):
         menu = QMenu(self)
@@ -557,23 +619,82 @@ class GameWidget(BaseWindow):
             "\nWould you like to reset the game?"
         )
         msg.setStandardButtons(QMessageBox.StandardButton.Yes |
-                               QMessageBox.StandardButton.No)
+                            QMessageBox.StandardButton.No)
         if msg.exec() == QMessageBox.StandardButton.Yes:
             self.save_global_stats()
+            
             self.money = INITIAL_MONEY
+            self.previous_money = INITIAL_MONEY
             self.unlocked_fields = 1
+            
+            # Reset statistics
+            self.stats = {
+                AnimalType.PIG: {"sold": 0, "dead": 0},
+                AnimalType.CHICKEN: {"sold": 0, "dead": 0},
+                AnimalType.COW: {"sold": 0, "dead": 0}
+            }
+            
+            self.employees = {}
+            
+            # Reset breeds
+            self.breeds = {
+                AnimalType.PIG: AnimalBreed(AnimalType.PIG),
+                AnimalType.CHICKEN: AnimalBreed(AnimalType.CHICKEN),
+                AnimalType.COW: AnimalBreed(AnimalType.COW)
+            }
+            self.breeds[AnimalType.CHICKEN].is_unlocked = True
+            self.breeds[AnimalType.PIG].is_unlocked = False
+            self.breeds[AnimalType.COW].is_unlocked = False
+            
+            for breed in self.breeds.values():
+                breed.level = 0
+
+            # Reset fields
             self.fields = []
             for y in range(GRID_SIZE):
                 row = []
                 for x in range(GRID_SIZE):
                     row.append(Field(x, y))
                 self.fields.append(row)
-
-            self.global_stats.current_day = 0
-            self.global_stats.answers_count = 0
+            
+            
             self.update()
-            self.save_game()
-            self.initialize_new_game()
+            
+            # 重要：既存のセーブファイルを完全に削除または上書き
+            # 新しい空のゲームデータで保存することで、古いデータが残らないようにする
+            game_state = {
+                "Version": VERSION,
+                "money": self.money,
+                "previous_money": self.previous_money,
+                "unlocked_fields": self.unlocked_fields,
+                "stats": {
+                    animal_type.name: stats
+                    for animal_type, stats in self.stats.items()
+                },
+                "fields": [
+                    [
+                        {
+                            "x": field.x,
+                            "y": field.y,
+                            "animal": None
+                        }
+                        for field in row
+                    ]
+                    for row in self.fields
+                ],
+                "breeds": {
+                    animal_type.name: {
+                        "level": breed.level,
+                        "is_unlocked": breed.is_unlocked
+                    }
+                    for animal_type, breed in self.breeds.items()
+                    if animal_type != AnimalType.EMPTY
+                },
+                "employees": {}  
+            }
+            
+            
+            SaveManager.save_game(game_state)
 
     def paintEvent(self, event):
         """Handle paint event"""

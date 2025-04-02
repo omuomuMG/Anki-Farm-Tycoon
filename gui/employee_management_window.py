@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QGridLayout, QFrame, QScrollArea,
-                             QWidget, QMessageBox)
+                             QWidget, QMessageBox, QComboBox, QGroupBox, QRadioButton)
 from PyQt6.QtCore import Qt
 
 from ..constants import GRID_SIZE
@@ -104,6 +104,93 @@ class EmployeeManagementWindow(BaseWindow):
             total_earnings_text.setStyleSheet("font-weight: bold; color: #2c3e50;")
             info_layout.addWidget(total_earnings_text)
             layout.addLayout(info_layout)
+            
+            # Add animal buying preferences section
+            preferences_group = QGroupBox("Animal Buying Preference")
+            preferences_layout = QVBoxLayout()
+            
+            # radio buttons for random and specific mode
+            random_mode_radio = QRadioButton("Random (buy any available animal)")
+            specific_mode_radio = QRadioButton("Specific animal type")
+            
+            # Set the radio button states based on employee preferences
+            random_mode_radio.setChecked(employee.buy_randomly)
+            specific_mode_radio.setChecked(not employee.buy_randomly)
+            
+    
+            mode_layout = QVBoxLayout()
+            mode_layout.addWidget(random_mode_radio)
+            mode_layout.addWidget(specific_mode_radio)
+            preferences_layout.addLayout(mode_layout)
+            
+            # Create dropdown for animal type selection
+            animal_dropdown = QComboBox()
+            animal_dropdown.addItem("Chicken", "chicken")
+            animal_dropdown.addItem("Pig", "pig")
+            animal_dropdown.addItem("Cow", "cow")
+            
+            # Set the current index based on employee preferences
+            if employee.can_buy_chicken:
+                animal_dropdown.setCurrentIndex(0)
+            elif employee.can_buy_pig:
+                animal_dropdown.setCurrentIndex(1)
+            elif employee.can_buy_cow:
+                animal_dropdown.setCurrentIndex(2)
+            else:
+                animal_dropdown.setCurrentIndex(0)
+            
+            
+            animal_dropdown.setStyleSheet("""
+                QComboBox {
+                    background-color: white;
+                    color: #2c3e50;
+                    border: 1px solid #bdc3c7;
+                    border-radius: 3px;
+                    padding: 3px;
+                    min-width: 100px;
+                }
+                QComboBox QAbstractItemView {
+                    background-color: white;
+                    color: #2c3e50;
+                    selection-background-color: #3498db;
+                    selection-color: white;
+                }
+            """)
+            
+            # Enable/disable the dropdown based on the mode
+            animal_dropdown.setEnabled(not employee.buy_randomly)
+            
+            # event handler for mode change
+            def on_mode_changed():
+                is_random = random_mode_radio.isChecked()
+                animal_dropdown.setEnabled(not is_random)
+                
+    
+                employee.buy_randomly = is_random
+                
+                if is_random:
+                    # Reset all preferences if random mode is selected
+                    employee.can_buy_chicken = False
+                    employee.can_buy_pig = False
+                    employee.can_buy_cow = False
+                else:
+                    self.update_animal_preference(employee, animal_dropdown.currentData())
+                
+                employee.save_preferences()
+            
+            
+            random_mode_radio.toggled.connect(on_mode_changed)
+            
+            
+            animal_dropdown.currentIndexChanged.connect(
+                lambda index, e=employee: self.update_animal_preference(e, animal_dropdown.currentData()) 
+                if not e.buy_randomly else None
+            )
+            
+            
+            preferences_layout.addWidget(animal_dropdown)
+            preferences_group.setLayout(preferences_layout)
+            layout.addWidget(preferences_group)
 
             button_layout = QHBoxLayout()
 
@@ -199,12 +286,40 @@ class EmployeeManagementWindow(BaseWindow):
 
 
         self.content_layout.addStretch()
+        
+    def update_animal_preference(self, employee, animal_type):
+        """Update which animal an employee can buy (only one type allowed)"""
+        
+        if not employee.buy_randomly:
+            # Reset all preferences
+            employee.can_buy_chicken = False
+            employee.can_buy_pig = False
+            employee.can_buy_cow = False
+        
+            # Set only the selected preference
+            if animal_type == "chicken":
+                employee.can_buy_chicken = True
+            elif animal_type == "pig":
+                employee.can_buy_pig = True
+            elif animal_type == "cow":
+                employee.can_buy_cow = True
+        
+        # Save preferences to the save file
+        employee.save_preferences()
+        
 
     def handle_hire(self, x: int, y: int):
         hire_cost = Employee.calculate_hire_cost(x, y)
         if self.parent.money >= hire_cost:
             if self.parent.hire_employee(x, y):
                 self.parent.money -= hire_cost
+                
+                # Make sure to load preferences when hiring a new employee
+                for emp in self.parent.employees.values():
+                    if emp.x == x and emp.y == y:
+                        emp.load_preferences()
+                        break
+                        
                 self.parent.save_game()
                 self.update_display()
 
@@ -220,25 +335,37 @@ class EmployeeManagementWindow(BaseWindow):
                 f"Not enough money!\nRequired: {hire_cost} coins"
             )
 
-    def handle_upgrade(self, employee):
-        cost = employee.get_upgrade_cost()
+    def handle_hire(self, x: int, y: int):
+        hire_cost = Employee.calculate_hire_cost(x, y)
+        if self.parent.money >= hire_cost:
+            if self.parent.hire_employee(x, y):
+                self.parent.money -= hire_cost
+                
+                # Find the newly hired employee
+                for emp in self.parent.employees.values():
+                    if emp.x == x and emp.y == y:
+                        # Set default animal buying preferences (default to chicken)
+                        emp.can_buy_chicken = True
+                        emp.can_buy_pig = False
+                        emp.can_buy_cow = False
+                        
+                        # Save preferences explicitly
+                        emp.save_preferences()
+                        break
+                        
+                self.parent.save_game()
+                self.update_display()
 
-        if self.parent.money >= cost:
-            self.parent.money -= cost
-            employee.level += 1
-            self.parent.save_game()
-            self.update_display()
-
-            QMessageBox.information(
-                self,
-                "Upgrade Successful",
-                f"Employee {employee.name} has been upgraded to level {employee.level}!"
-            )
+                QMessageBox.information(
+                    self,
+                    "Hiring Successful",
+                    f"New employee has been hired for position ({x + 1}, {y + 1})!"
+                )
         else:
             QMessageBox.warning(
                 self,
-                "Cannot Upgrade",
-                f"Not enough money!\nRequired: {cost} coins"
+                "Cannot Hire",
+                f"Not enough money!\nRequired: {hire_cost} coins"
             )
 
     def handle_toggle(self, employee):
