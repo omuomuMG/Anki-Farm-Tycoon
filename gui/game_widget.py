@@ -317,7 +317,6 @@ class GameWidget(BaseWindow):
 
 
     def load_saved_game(self, save_data):
-        """Load game state from save data"""
         self.money = save_data["money"]
         self.unlocked_fields = save_data["unlocked_fields"]
 
@@ -383,7 +382,11 @@ class GameWidget(BaseWindow):
 
             self.employees[emp_name] = employee
 
-        print(f"Loaded employees: {[(emp.name, emp.x, emp.y) for emp in self.employees.values()]}")  # デバッグ用
+        # ここで各従業員の好みをJSONから読み込み直す
+        for employee in self.employees.values():
+            employee.load_preferences()
+
+        print(f"Loaded employees: {[(emp.name, emp.x, emp.y) for emp in self.employees.values()]}")
 
     def save_game(self):
         previous_money = INITIAL_MONEY
