@@ -306,34 +306,7 @@ class EmployeeManagementWindow(BaseWindow):
         
         # Save preferences to the save file
         employee.save_preferences()
-        
 
-    def handle_hire(self, x: int, y: int):
-        hire_cost = Employee.calculate_hire_cost(x, y)
-        if self.parent.money >= hire_cost:
-            if self.parent.hire_employee(x, y):
-                self.parent.money -= hire_cost
-                
-                # Make sure to load preferences when hiring a new employee
-                for emp in self.parent.employees.values():
-                    if emp.x == x and emp.y == y:
-                        emp.load_preferences()
-                        break
-                        
-                self.parent.save_game()
-                self.update_display()
-
-                QMessageBox.information(
-                    self,
-                    "Hiring Successful",
-                    f"New employee has been hired for position ({x + 1}, {y + 1})!"
-                )
-        else:
-            QMessageBox.warning(
-                self,
-                "Cannot Hire",
-                f"Not enough money!\nRequired: {hire_cost} coins"
-            )
 
     def handle_hire(self, x: int, y: int):
         hire_cost = Employee.calculate_hire_cost(x, y)
@@ -379,3 +352,22 @@ class EmployeeManagementWindow(BaseWindow):
             "Status Changed",
             f"Employee {employee.name} has been {status}."
         )
+    def handle_upgrade(self, employee):
+        """Handle employee upgrade"""
+        if self.parent.upgrade_employee(employee):
+            # The employee level has been increased in the upgrade_employee method
+            self.update_display()
+            
+            QMessageBox.information(
+                self,
+                "Upgrade Successful",
+                f"Employee {employee.name} has been upgraded to level {employee.level}!\n"
+                f"New salary rate: {employee.get_salary_rate() * 100:.1f}%"
+            )
+        else:
+            QMessageBox.warning(
+                self,
+                "Cannot Upgrade",
+                f"Not enough money or employee is already at max level!\n"
+                f"Required: {employee.get_upgrade_cost()} coins"
+            )
