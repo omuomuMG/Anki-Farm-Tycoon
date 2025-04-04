@@ -379,3 +379,22 @@ class EmployeeManagementWindow(BaseWindow):
             "Status Changed",
             f"Employee {employee.name} has been {status}."
         )
+    def handle_upgrade(self, employee):
+        """Handle employee upgrade"""
+        if self.parent.upgrade_employee(employee):
+            # The employee level has been increased in the upgrade_employee method
+            self.update_display()
+            
+            QMessageBox.information(
+                self,
+                "Upgrade Successful",
+                f"Employee {employee.name} has been upgraded to level {employee.level}!\n"
+                f"New salary rate: {employee.get_salary_rate() * 100:.1f}%"
+            )
+        else:
+            QMessageBox.warning(
+                self,
+                "Cannot Upgrade",
+                f"Not enough money or employee is already at max level!\n"
+                f"Required: {employee.get_upgrade_cost()} coins"
+            )
