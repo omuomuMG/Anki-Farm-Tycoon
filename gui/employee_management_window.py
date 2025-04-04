@@ -306,34 +306,7 @@ class EmployeeManagementWindow(BaseWindow):
         
         # Save preferences to the save file
         employee.save_preferences()
-        
 
-    def handle_hire(self, x: int, y: int):
-        hire_cost = Employee.calculate_hire_cost(x, y)
-        if self.parent.money >= hire_cost:
-            if self.parent.hire_employee(x, y):
-                self.parent.money -= hire_cost
-                
-                # Make sure to load preferences when hiring a new employee
-                for emp in self.parent.employees.values():
-                    if emp.x == x and emp.y == y:
-                        emp.load_preferences()
-                        break
-                        
-                self.parent.save_game()
-                self.update_display()
-
-                QMessageBox.information(
-                    self,
-                    "Hiring Successful",
-                    f"New employee has been hired for position ({x + 1}, {y + 1})!"
-                )
-        else:
-            QMessageBox.warning(
-                self,
-                "Cannot Hire",
-                f"Not enough money!\nRequired: {hire_cost} coins"
-            )
 
     def handle_hire(self, x: int, y: int):
         hire_cost = Employee.calculate_hire_cost(x, y)
