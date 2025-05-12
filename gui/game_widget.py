@@ -706,8 +706,7 @@ class GameWidget(BaseWindow):
 
         window_width = STATS_PANEL_WIDTH + (cell_size * GRID_SIZE)
         window_height = cell_size * GRID_SIZE
-        self.setGeometry(100, 100, window_width, window_height)
-        
+        self.resize(window_width, window_height)
 
         # Draw stats background
         painter.drawPixmap(
