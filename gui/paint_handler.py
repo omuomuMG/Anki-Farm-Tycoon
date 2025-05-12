@@ -3,7 +3,7 @@ from PyQt6.QtCore import Qt
 
 from ..utils.save_manager import SaveManager
 from ..models.animal_type import AnimalType
-from ..constants import CELL_SIZE, INITIAL_MONEY
+from ..constants import INITIAL_MONEY
 
 
 class PaintHandler:
@@ -51,15 +51,15 @@ class PaintHandler:
             painter.drawText(10, y_pos, text)
             y_pos += 20
 
-    def draw_field(self, painter: QPainter, field, images: dict, pos_x: int, pos_y: int):
+    def draw_field(self, painter: QPainter, field, images: dict, pos_x: int, pos_y: int, cell_size: int):
         """Draw field and its contents"""
         if field.animal:
             if field.animal.is_dead:
                 # Draw grave
-                grave_size = min(CELL_SIZE - 20, images['grave'].width())
+                grave_size = min(cell_size - 20, images['grave'].width())
                 painter.drawPixmap(
-                    pos_x + (CELL_SIZE - grave_size) // 2,
-                    pos_y + (CELL_SIZE - grave_size) // 2,
+                    pos_x + (cell_size - grave_size) // 2,
+                    pos_y + (cell_size - grave_size) // 2,
                     grave_size,
                     grave_size,
                     images['grave']
@@ -68,16 +68,16 @@ class PaintHandler:
                 painter.setPen(QColor(255, 0, 0))
                 painter.drawText(
                     pos_x,
-                    pos_y + CELL_SIZE - 5,
+                    pos_y + cell_size - 5,
                     f"Dead ({field.animal.animal_type.label})"
                 )
             else:
                 # Draw living animal
                 animal_image = images['animals'][field.animal.animal_type]
-                animal_size = min(CELL_SIZE - 20, animal_image.width())
+                animal_size = min(cell_size - 20, animal_image.width())
                 painter.drawPixmap(
-                    pos_x + (CELL_SIZE - animal_size) // 2,
-                    pos_y + (CELL_SIZE - animal_size) // 2,
+                    pos_x + (cell_size - animal_size) // 2,
+                    pos_y + (cell_size - animal_size) // 2,
                     animal_size,
                     animal_size,
                     animal_image
@@ -86,10 +86,10 @@ class PaintHandler:
                 # Draw product if exists
                 if field.animal.has_product and field.animal.animal_type in [AnimalType.CHICKEN, AnimalType.COW, AnimalType.PIG]:
                     product_image = images['products'][field.animal.animal_type]
-                    product_size = min(CELL_SIZE // 4, product_image.width())
+                    product_size = min(cell_size // 4, product_image.width())
                     painter.drawPixmap(
-                        pos_x + CELL_SIZE - product_size - 5,
-                        pos_y + CELL_SIZE - product_size - 5,
+                        pos_x + cell_size - product_size - 5,
+                        pos_y + cell_size - product_size - 5,
                         product_size,
                         product_size,
                         product_image
@@ -111,6 +111,6 @@ class PaintHandler:
                 # Draw text
                 painter.drawText(
                     pos_x + 5,
-                    pos_y + CELL_SIZE - 5,
+                    pos_y + cell_size - 5,
                     growth_text
                 )
