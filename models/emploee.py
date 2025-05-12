@@ -10,7 +10,7 @@ class Employee:
         self.x = x
         self.y = y
         self.level = 1
-        self.max_level = 10
+        self.max_level = 11
         self.enabled = True
         self.total_earnings = 0
         self.total_sales = 0
@@ -33,7 +33,7 @@ class Employee:
     def get_salary_rate(self) -> float:
             base_rate = 0.3
             level_reduction = 0.03
-            return max(0.1, base_rate - (self.level - 1) * level_reduction)
+            return max(0,base_rate - (self.level - 1) * level_reduction)
 
     def get_upgrade_cost(self) -> int:
         return 1000 + self.level * 100
