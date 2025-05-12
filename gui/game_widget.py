@@ -21,7 +21,7 @@ from ..utils.resource_manager import ResourceManager
 from ..utils.save_manager import SaveManager
 from ..gui.paint_handler import PaintHandler
 from ..constants import (
-    CELL_SIZE, STATS_PANEL_WIDTH, GRID_SIZE,
+    INITIAL_CELL_SIZE, STATS_PANEL_WIDTH, GRID_SIZE,
     INITIAL_MONEY, BASE_FIELD_PRICE, FIELD_PRICE_MULTIPLIER, ADDON_DIR, VERSION
 )
 from pathlib import Path
@@ -33,8 +33,8 @@ class GameWidget(BaseWindow):
         super().__init__(parent)
 
         # Set window properties
-        window_width = STATS_PANEL_WIDTH + (CELL_SIZE * GRID_SIZE)
-        window_height = CELL_SIZE * GRID_SIZE
+        window_width = STATS_PANEL_WIDTH + (INITIAL_CELL_SIZE * GRID_SIZE)
+        window_height = INITIAL_CELL_SIZE * GRID_SIZE
         self.setGeometry(100, 100, window_width, window_height)
         self.setWindowTitle("Anki Farm Tycoon")
 
@@ -702,6 +702,12 @@ class GameWidget(BaseWindow):
     def paintEvent(self, event):
         """Handle paint event"""
         painter = QPainter(self)
+        cell_size = self.height() // 4
+
+        window_width = STATS_PANEL_WIDTH + (cell_size * GRID_SIZE)
+        window_height = cell_size * GRID_SIZE
+        self.setGeometry(100, 100, window_width, window_height)
+        
 
         # Draw stats background
         painter.drawPixmap(
@@ -726,23 +732,23 @@ class GameWidget(BaseWindow):
             for x in range(GRID_SIZE):
                 field = self.fields[y][x]
                 field_number = y * GRID_SIZE + x + 1
-                pos_x = STATS_PANEL_WIDTH + (x * CELL_SIZE)
-                pos_y = y * CELL_SIZE
+                pos_x = STATS_PANEL_WIDTH + (x * cell_size)
+                pos_y = y * cell_size
 
                 # Draw field background
                 if field_number <= self.unlocked_fields:
                     painter.drawPixmap(
-                        pos_x, pos_y, CELL_SIZE, CELL_SIZE,
+                        pos_x, pos_y, cell_size, cell_size,
                         self.resources['tile']
                     )
                     # Draw field contents (animal, growth, etc.)
                     self.paint_handler.draw_field(
-                        painter, field, self.resources, pos_x, pos_y
+                        painter, field, self.resources, pos_x, pos_y, cell_size
                     )
                 else:
                     # Draw locked field
                     painter.drawPixmap(
-                        pos_x, pos_y, CELL_SIZE, CELL_SIZE,
+                        pos_x, pos_y, cell_size, cell_size,
                         self.resources['locked_tile']
                     )
                     # Draw lock icon
@@ -750,8 +756,8 @@ class GameWidget(BaseWindow):
                     font.setPointSize(24)
                     painter.setFont(font)
                     painter.drawText(
-                        pos_x + CELL_SIZE // 2 - 20,
-                        pos_y + CELL_SIZE // 2 + 10,
+                        pos_x + cell_size // 2 - 20,
+                        pos_y + cell_size // 2 + 10,
                         "🔒"
                     )
 
@@ -760,7 +766,7 @@ class GameWidget(BaseWindow):
                     if employee.enabled:
                         icon_size = 20
                         painter.drawPixmap(
-                            pos_x + CELL_SIZE - icon_size - 5,
+                            pos_x + cell_size - icon_size - 5,
                             pos_y + 5,
                             icon_size,
                             icon_size,
@@ -780,9 +786,10 @@ class GameWidget(BaseWindow):
 
     def mousePressEvent(self, event):
         """Handle mouse press events"""
+        cell_size = self.height() // 4
         adjusted_x = event.position().x() - STATS_PANEL_WIDTH
-        x = int(adjusted_x // CELL_SIZE)
-        y = int(event.position().y() // CELL_SIZE)
+        x = int(adjusted_x // cell_size)
+        y = int(event.position().y() // cell_size)
 
         if 0 <= x < GRID_SIZE and 0 <= y < GRID_SIZE:
             field_number = y * GRID_SIZE + x + 1
