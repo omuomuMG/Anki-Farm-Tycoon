@@ -93,3 +93,24 @@ def create_user_data(user_fields = {"id":5,"name":"まーごめ", "password":"ma
     except urllib.error.HTTPError as e:
         print(f"HTTP Error: {e.code} - {e.reason}")
         return None
+    
+
+def delete_user_data(user_name = "2213"):
+    print("delete_user_data------")
+    url = f"{SUPABASE_URL}/rest/v1/users?name=eq.{user_name}"
+    headers = {
+        "apikey": SUPABASE_API_KEY,
+        "Authorization": f"Bearer {SUPABASE_API_KEY}",
+        "Accept": "application/json",
+        "Prefer": "return=representation"
+    }
+    
+    req = urllib.request.Request(url, headers=headers, method="DELETE")
+
+    try:
+        with urllib.request.urlopen(req) as response:
+            result = response.read().decode()
+            return json.loads(result) if result else None
+    except urllib.error.HTTPError as e:
+        print(f"HTTP Error: {e.code} - {e.reason}")
+        return None
