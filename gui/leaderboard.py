@@ -1,4 +1,11 @@
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QListWidget
+import urllib.request
+import urllib.parse
+import json
+
+SUPABASE_URL = "https://cbucgwfitimxvsayzpsa.supabase.co"
+SUPABASE_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNidWNnd2ZpdGlteHZzYXl6cHNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc2NTMwODksImV4cCI6MjA2MzIyOTA4OX0.Roosk0WMD2SG27iN-b_Shnge-wPlsgHNRXhflQRw2BQ"
+
 
 class LeaderBoardWindow(QDialog):
     def __init__(self, leaderboard_data, parent=None):
@@ -17,13 +24,6 @@ class LeaderBoardWindow(QDialog):
             )
         layout.addWidget(self.list_widget)
 
-
-import urllib.request
-import urllib.parse
-import json
-
-SUPABASE_URL = "https://cbucgwfitimxvsayzpsa.supabase.co"
-SUPABASE_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNidWNnd2ZpdGlteHZzYXl6cHNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc2NTMwODksImV4cCI6MjA2MzIyOTA4OX0.Roosk0WMD2SG27iN-b_Shnge-wPlsgHNRXhflQRw2BQ"
 
 def get_user_data(name = "omuomu", password=1):
 
@@ -47,3 +47,25 @@ def get_user_data(name = "omuomu", password=1):
         return None
 
 
+def update_user_data(user_name = "omuomu", update_fields = {"money":10101}):
+    print("update_user_data------")
+    url = f"{SUPABASE_URL}/rest/v1/users?name=eq.{user_name}"
+
+    headers = {
+        "apikey": SUPABASE_API_KEY,
+        "Authorization": f"Bearer {SUPABASE_API_KEY}",
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation"
+    }
+
+    data = json.dumps(update_fields).encode("utf-8")
+    req = urllib.request.Request(url, data=data, headers=headers, method="PATCH")
+
+    try:
+        with urllib.request.urlopen(req) as response:
+            result = response.read().decode()
+            return json.loads(result)
+    except urllib.error.HTTPError as e:
+        print(f"HTTP Error: {e.code} - {e.reason}")
+        return None
