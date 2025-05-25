@@ -917,8 +917,6 @@ class GameWidget(BaseWindow):
             profile_dir = Path(mw.pm.profileFolder())
             save_path = profile_dir / "collection.media/_anki_farm_tycoon_global_stats.json"
             
-            # save_path = profile_dir / "anki_farm_tycoon_global_stats.json"
-
             with open(save_path, 'w') as f:
                 json.dump(self.global_stats.to_dict(), f)
         except Exception as e:
@@ -942,10 +940,8 @@ class GameWidget(BaseWindow):
             self.global_stats = GlobalStats()
 
     def show_leaderboard(self):
-        leaderboard_data = [{"name":"ダミーデータ", "password":"margome", "money":100,"createdAt":datetime.datetime.now().strftime("%Y-%m-%d")}]
-        
-        print(get_user_data())
-        update_user_data()
-        
+        leaderboard_data = [{"name":"Eroor", "password":"password", "money":401,"createdAt":datetime.datetime.now().strftime("%Y-%m-%d")}]
+
+        leaderboard_data = get_user_data()
         leaderboard_window = LeaderBoardWindow(leaderboard_data, self)
         leaderboard_window.exec()
