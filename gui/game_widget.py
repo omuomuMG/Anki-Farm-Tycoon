@@ -940,8 +940,6 @@ class GameWidget(BaseWindow):
             self.global_stats = GlobalStats()
 
     def show_leaderboard(self):
-        leaderboard_data = [{"name":"Eroor", "password":"password", "money":401,"createdAt":datetime.datetime.now().strftime("%Y-%m-%d")}]
-
         leaderboard_data = get_user_data()
         leaderboard_window = LeaderBoardWindow(leaderboard_data, self)
         leaderboard_window.exec()
