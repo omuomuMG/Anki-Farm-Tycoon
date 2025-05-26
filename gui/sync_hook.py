@@ -1,6 +1,5 @@
 import datetime
 from aqt import mw
-import json
 from pathlib import Path
 
 from ..constants import INITIAL_MONEY
