@@ -5,7 +5,7 @@ from pathlib import Path
 import os
 
 from ..constants import INITIAL_MONEY
-from ..gui.leaderboard import load_global_stats, update_user_data
+from ..gui.leaderboard import get_user_credentials, load_global_stats, update_user_data
 
 def on_sync_complete():
     """Sync completion handler - update user data if logged in"""
@@ -28,11 +28,6 @@ def on_sync_complete():
                 "last_access": datetime.datetime.now().strftime("%Y-%m-%d")
             }
             
-            # Add any additional fields from global stats
-            # if "current_day" in global_stats:
-            #     update_fields["current_day"] = global_stats["current_day"]
-            
-            
             # Call update_user_data
             result = update_user_data(username, password, update_fields)
             
@@ -47,14 +42,3 @@ def on_sync_complete():
     except Exception as e:
         print(f"Error in sync completion handler: {e}")
 
-def get_user_credentials():
-    """Get user authentication credentials"""
-    try:
-        profile_dir = Path(mw.pm.profileFolder())
-        save_path = profile_dir / "collection.media/_anki_farm_tycoon_user_data.json"
-        if os.path.exists(save_path):
-            with open(save_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        return None
-    except (json.JSONDecodeError, FileNotFoundError):
-        return None

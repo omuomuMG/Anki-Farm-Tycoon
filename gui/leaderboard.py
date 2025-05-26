@@ -31,22 +31,66 @@ def load_global_stats():
                 with open(save_path, 'r', encoding='utf-8') as f:
                     return json.load(f)
         else:
-            # Return default values if file doesn't exist
             return {
                 "total_money_earned": INITIAL_MONEY
             }
     except (json.JSONDecodeError, FileNotFoundError) as e:
         print(f"Error loading global stats: {e}")
-        # Return default values on error
         return {
             "total_money_earned": INITIAL_MONEY
         }
 
 
-class LoginWindow(QDialog):
+def authenticate_user(username, password):
+    """
+    Authenticate user using update method
+    Returns: (success: bool, error_message: str)
+    """
+    try:
+        global_stats = load_global_stats()
+        
+        # Try to update user data - if credentials are valid, update will succeed
+        update_fields = {
+            "money": global_stats.get("total_money_earned", INITIAL_MONEY),
+            "last_access": datetime.datetime.now().strftime("%Y-%m-%d")
+        }
+        
+        result = update_user_data(username, password, update_fields)
+        
+        if result:
+            return True, ""
+        else:
+            return False, "Invalid username or password"
+            
+    except Exception as e:
+        return False, f"Authentication error: {str(e)}"
+
+
+def save_credentials(username, password):
+    """Save authentication credentials"""
+    try:
+        profile_dir = Path(mw.pm.profileFolder())
+        save_path = profile_dir / "collection.media/_anki_farm_tycoon_user_data.json"
+        
+        credentials = {
+            "username": username,
+            "password": password
+        }
+        
+        with open(save_path, 'w', encoding='utf-8') as f:
+            json.dump(credentials, f, ensure_ascii=False, indent=2)
+            
+    except Exception as e:
+        print(f"Credential save error: {e}")
+
+
+
+
+class RegisterWindow(QDialog):
+    """Registration window - renamed from LoginWindow"""
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Anki Farm Tycoon")
+        self.setWindowTitle("Create Account - Anki Farm Tycoon")
         self.setFixedSize(400, 350)
         self.parent_window = parent
         
@@ -96,16 +140,16 @@ class LoginWindow(QDialog):
         cancel_button = QPushButton("Cancel")
         cancel_button.clicked.connect(self.reject)
         
-        self.login_button = QPushButton("Create Account & Login")
-        self.login_button.clicked.connect(self.create_account)
-        self.login_button.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
+        self.register_button = QPushButton("Create Account")
+        self.register_button.clicked.connect(self.create_account)
+        self.register_button.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
         
         button_layout.addWidget(cancel_button)
-        button_layout.addWidget(self.login_button)
+        button_layout.addWidget(self.register_button)
         layout.addWidget(QWidget())  # Spacer
         layout.addLayout(button_layout)
         
-        # Enter key for login
+        # Enter key for registration
         self.username_input.returnPressed.connect(self.create_account)
         self.password_input.returnPressed.connect(self.create_account)
     
@@ -147,8 +191,8 @@ class LoginWindow(QDialog):
             return
         
         # Disable button and show processing state
-        self.login_button.setEnabled(False)
-        self.login_button.setText("Creating...")
+        self.register_button.setEnabled(False)
+        self.register_button.setText("Creating...")
         self.error_label.setText("Creating account...")
         self.error_label.setStyleSheet("color: blue; font-weight: bold;")
         
@@ -160,7 +204,7 @@ class LoginWindow(QDialog):
             user_fields = {
                 "name": username,
                 "password": password,
-                "money": global_stats.get("total_money_earned", INITIAL_MONEY),  # Use value from global stats
+                "money": global_stats.get("total_money_earned", INITIAL_MONEY),
                 "last_access": datetime.datetime.now().strftime("%Y-%m-%d")
             }
             
@@ -168,20 +212,20 @@ class LoginWindow(QDialog):
             if "default_settings" in global_stats:
                 user_fields.update(global_stats["default_settings"])
             
-            print(f"Creating user with fields: {user_fields}")  # Debug log
+            print(f"Creating user with fields: {user_fields}")
             
             result = create_user_data(user_fields)
             
             if result:
                 # Success: Save credentials
-                self.save_credentials(username, password)
+                save_credentials(username, password)
                 
                 # Success message
-                initial_money = user_fields.get("total_money_earned", INITIAL_MONEY)
+                initial_money = user_fields.get("money", INITIAL_MONEY)
                 QMessageBox.information(
                     self,
                     "Account Created Successfully",
-                    f"Account '{username}' has been created successfully!\nYou have been granted {initial_money:,} coins as starting funds."
+                    f"Account '{username}' has been created successfully!\nYou have been granted {initial_money:,} coins as starting funds.\n\nYou are now logged in."
                 )
                 
                 # Refresh parent window
@@ -197,7 +241,7 @@ class LoginWindow(QDialog):
         except Exception as e:
             # Error handling
             error_message = str(e)
-            print(f"Account creation error: {error_message}")  # Debug log
+            print(f"Account creation error: {error_message}")
             if "duplicate" in error_message.lower() or "unique" in error_message.lower():
                 self.error_label.setText("❌ That username is already taken. Please enter a different username.")
             else:
@@ -206,25 +250,125 @@ class LoginWindow(QDialog):
         
         finally:
             # Re-enable button
-            self.login_button.setEnabled(True)
-            self.login_button.setText("Create Account & Login")
+            self.register_button.setEnabled(True)
+            self.register_button.setText("Create Account")
+
+
+class LoginOnlyWindow(QDialog):
+    """Login window for existing users"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Login - Anki Farm Tycoon")
+        self.setFixedSize(350, 250)
+        self.parent_window = parent
+        
+        layout = QVBoxLayout(self)
+        
+        # Title
+        title_label = QLabel("Login to Your Account")
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_label.setStyleSheet("font-size: 16px; font-weight: bold; margin: 20px;")
+        layout.addWidget(title_label)
+        
+        # Username input
+        username_label = QLabel("Username:")
+        username_label.setStyleSheet("font-weight: bold;")
+        layout.addWidget(username_label)
+        
+        self.username_input = QLineEdit()
+        self.username_input.setPlaceholderText("Enter your username")
+        layout.addWidget(self.username_input)
+        
+        # Password input
+        password_label = QLabel("Password:")
+        password_label.setStyleSheet("font-weight: bold;")
+        layout.addWidget(password_label)
+        
+        self.password_input = QLineEdit()
+        self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.password_input.setPlaceholderText("Enter your password")
+        layout.addWidget(self.password_input)
+        
+        # Error message display
+        self.error_label = QLabel("")
+        self.error_label.setStyleSheet("color: red; font-weight: bold;")
+        self.error_label.setWordWrap(True)
+        layout.addWidget(self.error_label)
+        
+        # Buttons
+        button_layout = QHBoxLayout()
+        
+        cancel_button = QPushButton("Cancel")
+        cancel_button.clicked.connect(self.reject)
+        
+        self.login_button = QPushButton("Login")
+        self.login_button.clicked.connect(self.login)
+        self.login_button.setStyleSheet("background-color: #2196F3; color: white; font-weight: bold;")
+        
+        button_layout.addWidget(cancel_button)
+        button_layout.addWidget(self.login_button)
+        layout.addWidget(QWidget())  # Spacer
+        layout.addLayout(button_layout)
+        
+        # Enter key for login
+        self.username_input.returnPressed.connect(self.login)
+        self.password_input.returnPressed.connect(self.login)
     
-    def save_credentials(self, username, password):
-        """Save authentication credentials"""
+    def login(self):
+        """Login process"""
+        username = self.username_input.text().strip()
+        password = self.password_input.text().strip()
+        
+        # Basic validation
+        if not username:
+            self.error_label.setText("❌ Please enter your username")
+            return
+        
+        if not password:
+            self.error_label.setText("❌ Please enter your password")
+            return
+        
+        # Disable button and show processing state
+        self.login_button.setEnabled(False)
+        self.login_button.setText("Logging in...")
+        self.error_label.setText("Authenticating...")
+        self.error_label.setStyleSheet("color: blue; font-weight: bold;")
+        
         try:
-            profile_dir = Path(mw.pm.profileFolder())
-            save_path = profile_dir / "collection.media/_anki_farm_tycoon_user_data.json"
+            # Authenticate user
+            success, error_message = authenticate_user(username, password)
             
-            credentials = {
-                "username": username,
-                "password": password
-            }
-            
-            with open(save_path, 'w', encoding='utf-8') as f:
-                json.dump(credentials, f, ensure_ascii=False, indent=2)
+            if success:
+                # Success: Save credentials
+                save_credentials(username, password)
+                
+                # Success message
+                QMessageBox.information(
+                    self,
+                    "Login Successful",
+                    f"Welcome back, {username}!\nYour progress has been synchronized."
+                )
+                
+                # Refresh parent window
+                if self.parent_window:
+                    self.parent_window.refresh_data()
+                
+                self.accept()  # Close dialog
+            else:
+                # Login failed
+                self.error_label.setText(f"❌ {error_message}")
+                self.error_label.setStyleSheet("color: red; font-weight: bold;")
                 
         except Exception as e:
-            print(f"Credential save error: {e}")
+            # Error handling
+            print(f"Login error: {e}")
+            self.error_label.setText(f"❌ Login failed. Please try again.\n({str(e)})")
+            self.error_label.setStyleSheet("color: red; font-weight: bold;")
+        
+        finally:
+            # Re-enable button
+            self.login_button.setEnabled(True)
+            self.login_button.setText("Login")
 
 
 class LeaderBoardWindow(QDialog):
@@ -236,6 +380,19 @@ class LeaderBoardWindow(QDialog):
         
         # Main layout
         main_layout = QVBoxLayout(self)
+
+        # Beta version description
+        beta_info = QTextEdit()
+        beta_info.setReadOnly(True)
+        beta_info.setMaximumHeight(80)
+        beta_info.setPlainText(
+            "🚧 BETA VERSION 🚧\n"
+            "This is a beta version of the game. "
+            "Please DO NOT use your real email address as username. "
+            "Use a fictional username instead."
+        )
+        
+        main_layout.addWidget(beta_info)
         
         # User info and login/logout section
         self.create_user_section(main_layout)
@@ -249,7 +406,7 @@ class LeaderBoardWindow(QDialog):
         user_layout = QHBoxLayout(user_section)
         
         # Get user info
-        user_info = self.get_user_credentials()
+        user_info = get_user_credentials()
         
         if user_info and user_info.get("username") and user_info.get("password"):
             # Logged in: show username and logout button
@@ -264,13 +421,20 @@ class LeaderBoardWindow(QDialog):
             user_layout.addStretch()  # Space between left and right align
             user_layout.addWidget(logout_button)
         else:
-            # Not logged in: show login button
+            # Not logged in: show login and register buttons
             login_button = QPushButton("Login")
             login_button.clicked.connect(self.show_login)
             login_button.setMaximumWidth(100)
+            login_button.setStyleSheet("background-color: #2196F3; color: white; font-weight: bold;")
+            
+            register_button = QPushButton("Register")
+            register_button.clicked.connect(self.show_register)
+            register_button.setMaximumWidth(100)
+            register_button.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
             
             user_layout.addStretch()  # Center align
             user_layout.addWidget(login_button)
+            user_layout.addWidget(register_button)
             user_layout.addStretch()  # Center align
         
         main_layout.addWidget(user_section)
@@ -318,18 +482,6 @@ class LeaderBoardWindow(QDialog):
             item_text = f"{rank_emoji} {name} - {money:,} coins"
             self.ranking_list.addItem(item_text)
     
-    def get_user_credentials(self):
-        """Get user authentication credentials"""
-        try:
-            profile_dir = Path(mw.pm.profileFolder())
-            save_path = profile_dir / "collection.media/_anki_farm_tycoon_user_data.json"
-            if os.path.exists(save_path):
-                with open(save_path, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            return None
-        except (json.JSONDecodeError, FileNotFoundError):
-            return None
-    
     def logout(self):
         """Logout process"""
         try:
@@ -347,9 +499,14 @@ class LeaderBoardWindow(QDialog):
             print(f"Logout error: {e}")
     
     def show_login(self):
-        """Show login screen"""
-        login_window = LoginWindow(self)
+        """Show login window"""
+        login_window = LoginOnlyWindow(self)
         login_window.exec()
+    
+    def show_register(self):
+        """Show registration window"""
+        register_window = RegisterWindow(self)
+        register_window.exec()
     
     def refresh_data(self):
         """Re-fetch data and refresh window"""
@@ -374,6 +531,7 @@ class LeaderBoardWindow(QDialog):
             print(f"Data refresh error: {e}")
 
 
+# Database functions (unchanged)
 def get_user_data():
     url = f"{SUPABASE_URL}/rest/v1/users?select=name,money,last_access"
     headers = {
@@ -454,4 +612,17 @@ def delete_user_data(user_name = "2213"):
             return json.loads(result) if result else None
     except urllib.error.HTTPError as e:
         print(f"HTTP Error: {e.code} - {e.reason}")
+        return None
+
+
+def get_user_credentials():
+    """Get user authentication credentials"""
+    try:
+        profile_dir = Path(mw.pm.profileFolder())
+        save_path = profile_dir / "collection.media/_anki_farm_tycoon_user_data.json"
+        if os.path.exists(save_path):
+            with open(save_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        return None
+    except (json.JSONDecodeError, FileNotFoundError):
         return None
