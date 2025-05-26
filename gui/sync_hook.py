@@ -2,7 +2,6 @@ import datetime
 from aqt import mw
 import json
 from pathlib import Path
-import os
 
 from ..constants import INITIAL_MONEY
 from ..gui.leaderboard import get_user_credentials, load_global_stats, update_user_data
