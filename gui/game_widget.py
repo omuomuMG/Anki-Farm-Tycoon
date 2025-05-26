@@ -21,7 +21,7 @@ from ..models.field import Field
 from ..utils.resource_manager import ResourceManager
 from ..utils.save_manager import SaveManager
 from ..gui.paint_handler import PaintHandler
-from .leaderboard import LeaderBoardWindow, create_user_data, delete_user_data, get_user_data, update_user_data
+from .leaderboard import LeaderBoardWindow, get_user_data, update_user_data
 from ..constants import (
     INITIAL_CELL_SIZE, STATS_PANEL_WIDTH, GRID_SIZE,
     INITIAL_MONEY, BASE_FIELD_PRICE, FIELD_PRICE_MULTIPLIER, ADDON_DIR, VERSION
