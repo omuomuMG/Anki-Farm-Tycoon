@@ -1,3 +1,4 @@
+import datetime
 import json
 import random
 import copy
@@ -20,6 +21,7 @@ from ..models.field import Field
 from ..utils.resource_manager import ResourceManager
 from ..utils.save_manager import SaveManager
 from ..gui.paint_handler import PaintHandler
+from .leaderboard import LeaderBoardWindow, get_user_data, update_user_data
 from ..constants import (
     INITIAL_CELL_SIZE, STATS_PANEL_WIDTH, GRID_SIZE,
     INITIAL_MONEY, BASE_FIELD_PRICE, FIELD_PRICE_MULTIPLIER, ADDON_DIR, VERSION
@@ -153,6 +155,22 @@ class GameWidget(BaseWindow):
         self.reset_button = QPushButton("Reset Game", self)
         self.register_button(self.reset_button, self.reset_game)
         self.reset_button.setStyleSheet("""
+            QPushButton {
+                background-color: #ff6b6b;
+                color: white;
+                border: none;
+                padding: 5px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #ff5252;
+            }
+        """)
+
+        # LeaderBoard button
+        self.leader_board_button = QPushButton("Leader Board", self)
+        self.register_button(self.leader_board_button, self.show_leaderboard)
+        self.leader_board_button.setStyleSheet("""
             QPushButton {
                 background-color: #ff6b6b;
                 color: white;
@@ -777,6 +795,7 @@ class GameWidget(BaseWindow):
             self.reset_button.setGeometry(10, self.height() - 40, 100, 30)  # ResetButton
             self.instruction_button.setGeometry(130, self.height() - 40, 100, 30)
             self.rate_button.setGeometry(130, self.height() - 80, 100, 30)
+            self.leader_board_button.setGeometry(130, self.height() - 120, 100, 30)
 
 
 
@@ -896,8 +915,8 @@ class GameWidget(BaseWindow):
     def save_global_stats(self):
         try:
             profile_dir = Path(mw.pm.profileFolder())
-            save_path = profile_dir / "anki_farm_tycoon_global_stats.json"
-
+            save_path = profile_dir / "collection.media/_anki_farm_tycoon_global_stats.json"
+            
             with open(save_path, 'w') as f:
                 json.dump(self.global_stats.to_dict(), f)
         except Exception as e:
@@ -906,7 +925,10 @@ class GameWidget(BaseWindow):
     def load_global_stats(self):
         try:
             profile_dir = Path(mw.pm.profileFolder())
-            save_path = profile_dir / "anki_farm_tycoon_global_stats.json"
+            save_path = profile_dir / "collection.media/_anki_farm_tycoon_global_stats.json"
+            if not save_path.exists():
+                save_path = profile_dir / "anki_farm_tycoon_global_stats.json"
+
             if save_path.exists():
                 with open(save_path, 'r') as f:
                     data = json.load(f)
@@ -917,3 +939,7 @@ class GameWidget(BaseWindow):
             print(f"Error loading global stats: {e}")
             self.global_stats = GlobalStats()
 
+    def show_leaderboard(self):
+        leaderboard_data = get_user_data()
+        leaderboard_window = LeaderBoardWindow(leaderboard_data, self)
+        leaderboard_window.exec()
