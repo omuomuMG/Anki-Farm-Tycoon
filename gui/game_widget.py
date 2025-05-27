@@ -67,119 +67,138 @@ class GameWidget(BaseWindow):
     def setup_buttons(self):
 
         # Rate button
-        self.rate_button = QPushButton("Rate 👍", self)
+        self.rate_button = QPushButton("👍Rate", self)
         self.rate_button.clicked.connect(lambda: QDesktopServices.openUrl(
             QUrl("https://ankiweb.net/shared/review/20342773")))
         self.rate_button.setStyleSheet("""
                     QPushButton {
-                        background-color: #3434fd;
+                        background-color: #A0522D;
                         color: white;
                         border: none;
-                        padding: 5px;
                         border-radius: 3px;
                     }
                     QPushButton:hover {
-                        background-color: #0101a6;
+                        background-color: #cb6838;
                     }
                     
                 """)
 
 
         # Instruction button
-        self.instruction_button = QPushButton("Instruction", self)
+        self.instruction_button = QPushButton("📗Instruction", self)
         self.instruction_button.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/omuomuMG/Anki-Farm-Tycoon/blob/master/Instruction.md")))
         self.instruction_button.setStyleSheet("""
             QPushButton {
-                background-color: #c2c821;
+                background-color: #A0522D;
                 color: white;
                 border: none;
                 padding: 5px;
                 border-radius: 3px;
             }
             QPushButton:hover {
-                background-color: #616410;
+                background-color: #cb6838;
             }
         """)
 
 
 
         # Shop button
-        self.shop_button = QPushButton("Shop", self)
+        self.shop_button = QPushButton("🐾Shop", self)
         self.register_button(self.shop_button, self.show_shop)
         self.shop_button.setStyleSheet("""
             QPushButton {
-                background-color: #4CAF50;
+                background-color: #A0522D;
                 color: white;
                 border: none;
-                padding: 5px;
-                border-radius: 3px;
+                border-radius: 5px;
+                font-size: 18px;
             }
             QPushButton:hover {
-                background-color: #45a049;
+                background-color: #cb6838;
             }
         """)
+        self.shop_button.setMinimumSize(60, 60) 
+        self.shop_button.resize(60, 60)  
 
         # Employee button
-        self.employee_button = QPushButton("Employees", self)
+        self.employee_button = QPushButton("👨‍🌾Employee", self)
         self.register_button(self.employee_button, self.show_employee_management)
         self.employee_button.setStyleSheet("""
             QPushButton {
-                background-color: #9b59b6;
+                background-color: #A0522D;
                 color: white;
                 border: none;
-                padding: 5px;
-                border-radius: 3px;
+                padding: 0px;
+                border-radius: 5px;
+                font-size: 17px;
+                                           
             }
             QPushButton:hover {
-                background-color: #8e44ad;
+                background-color: #cb6838;
             }
         """)
+        self.employee_button.setMinimumSize(60, 60) 
+        self.employee_button.resize(60, 60)  
 
         # Statistics button
-        self.stats_button = QPushButton("Statistics", self)
+        self.stats_button = QPushButton("📈Statistics", self)
         self.register_button(self.stats_button, self.show_statistics)
         self.stats_button.setStyleSheet("""
             QPushButton {
-                background-color: #4a90e2;
+                background-color: #A0522D;
                 color: white;
                 border: none;
                 padding: 5px;
                 border-radius: 3px;
             }
             QPushButton:hover {
-                background-color: #357abd;
+                background-color: #cb6838;
             }
         """)
 
         # Reset button
-        self.reset_button = QPushButton("Reset Game", self)
+        self.reset_button = QPushButton("🔄Reset Game", self)
         self.register_button(self.reset_button, self.reset_game)
         self.reset_button.setStyleSheet("""
             QPushButton {
-                background-color: #ff6b6b;
+                background-color: #A0522D;
                 color: white;
                 border: none;
                 padding: 5px;
                 border-radius: 3px;
             }
             QPushButton:hover {
-                background-color: #ff5252;
+                background-color: #cb6838;
             }
         """)
 
         # LeaderBoard button
-        self.leader_board_button = QPushButton("Leader Board", self)
+        self.leader_board_button = QPushButton("👑Leader Board", self)
         self.register_button(self.leader_board_button, self.show_leaderboard)
         self.leader_board_button.setStyleSheet("""
             QPushButton {
-                background-color: #ff6b6b;
+                background-color: #A0522D;
+                color: white;
+                border: none;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #cb6838;
+            }
+        """)
+
+        self.github_button = QPushButton("⭐️GitHub", self)
+        self.github_button.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/omuomuMG/Anki-Farm-Tycoon")))
+        self.github_button.setStyleSheet("""
+            QPushButton {
+                background-color: #A0522D;
                 color: white;
                 border: none;
                 padding: 5px;
                 border-radius: 3px;
             }
             QPushButton:hover {
-                background-color: #ff5252;
+                background-color: #cb6838;
             }
         """)
 
@@ -789,14 +808,14 @@ class GameWidget(BaseWindow):
                             icon_size,
                             self.resources['employee_icon']
                         )
-            self.shop_button.setGeometry(10, self.height() - 160, 100, 30)  # ShopButton
-            self.employee_button.setGeometry(10, self.height() - 120, 100, 30) # employeeButton
+            self.shop_button.setGeometry(10, self.height() - 200, 100, 30)  # ShopButton
+            self.employee_button.setGeometry(130, self.height() - 200, 100, 30) # employeeButton
             self.stats_button.setGeometry(10, self.height() - 80, 100, 30)  # StatisticsButton
             self.reset_button.setGeometry(10, self.height() - 40, 100, 30)  # ResetButton
             self.instruction_button.setGeometry(130, self.height() - 40, 100, 30)
             self.rate_button.setGeometry(130, self.height() - 80, 100, 30)
-            self.leader_board_button.setGeometry(130, self.height() - 120, 100, 30)
-
+            self.leader_board_button.setGeometry(10, self.height() - 120, 100, 30)
+            self.github_button.setGeometry(130, self.height() - 120, 100, 30) 
 
 
 

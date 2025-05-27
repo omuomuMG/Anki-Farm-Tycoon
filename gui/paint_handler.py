@@ -90,7 +90,7 @@ class PaintHandler:
                     painter.drawPixmap(
                         pos_x + cell_size - product_size - 5,
                         pos_y + cell_size - product_size - 5,
-                        product_size,
+                        product_size - product_size/6,
                         product_size,
                         product_image
                     )

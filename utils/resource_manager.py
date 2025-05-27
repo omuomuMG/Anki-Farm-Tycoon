@@ -6,19 +6,19 @@ class ResourceManager:
     @staticmethod
     def load_all_resources():
         resources = {
-            'tile': QPixmap(str(RESOURCES_DIR / "maptile_sogen_01.svg")),
-            'locked_tile': QPixmap(str(RESOURCES_DIR / "maptile_sogen_hana_01.svg")),
-            'stats_bg': QPixmap(str(RESOURCES_DIR / "maptile_sogen_01.svg")),
-            'grave': QPixmap(str(RESOURCES_DIR / "grave.svg")),
-            'employee_icon': QPixmap(str(RESOURCES_DIR / "employee_icon.svg")),
+            'tile': QPixmap(str(RESOURCES_DIR / "ground.png")),
+            'locked_tile': QPixmap(str(RESOURCES_DIR / "tile_flower.png")),
+            'stats_bg': QPixmap(str(RESOURCES_DIR / "menu3.png")),
+            'grave': QPixmap(str(RESOURCES_DIR / "grave.png")),
+            'employee_icon': QPixmap(str(RESOURCES_DIR / "farmer.png")),
             'animals': {
-                AnimalType.PIG: QPixmap(str(RESOURCES_DIR / "buta.svg")),
-                AnimalType.CHICKEN: QPixmap(str(RESOURCES_DIR / "niwatori_male.svg")),
-                AnimalType.COW: QPixmap(str(RESOURCES_DIR / "ushi_red_tsuno.svg"))
+                AnimalType.PIG: QPixmap(str(RESOURCES_DIR / "pig.png")),
+                AnimalType.CHICKEN: QPixmap(str(RESOURCES_DIR / "chicken.png")),
+                AnimalType.COW: QPixmap(str(RESOURCES_DIR / "cow.png"))
             },
             'products': {
-                AnimalType.CHICKEN: QPixmap(str(RESOURCES_DIR / "egg.svg")),
-                AnimalType.COW: QPixmap(str(RESOURCES_DIR / "milk.svg")),
+                AnimalType.CHICKEN: QPixmap(str(RESOURCES_DIR / "egg.png")),
+                AnimalType.COW: QPixmap(str(RESOURCES_DIR / "milk.png")),
                 AnimalType.PIG:  QPixmap(str(RESOURCES_DIR / "pig_effect.svg"))
             }
         }

@@ -47,7 +47,6 @@ class SaveManager:
 
             with open(save_path, 'w', encoding='utf-8') as f:
                 json.dump(serializable_state, f, ensure_ascii=False, indent=2)
-            print(f"Game saved successfully to {save_path}")
 
         except Exception as e:
             print(f"Error saving game: {e}")
@@ -68,7 +67,6 @@ class SaveManager:
 
             with open(save_path, 'r', encoding='utf-8') as f:
                 save_data = json.load(f)
-            print(f"Game loaded successfully from {save_path}")
             return save_data
 
         except Exception as e:
