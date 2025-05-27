@@ -4,7 +4,7 @@
 Gamify your Anki. Become a billionaire by learning! 🐮🐔🐷
 
 # Demo
-![Anki Farm Tycoon Demo gif](https://github.com/user-attachments/assets/7abf4abd-638f-4e9a-bd7c-4b4b76b58e9f)
+![anki-farm-tycoon-demo](https://github.com/user-attachments/assets/876c5d14-fb48-4797-abad-fa1447ff6db3)
 
 
 # What is it????
