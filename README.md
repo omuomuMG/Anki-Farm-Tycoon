@@ -136,6 +136,7 @@ A: No more popup dialogs! Simply single-click to buy animals/land and double-cli
 
 - If you like AnkiFarmTycoon, please **[Rate👍](https://ankiweb.net/shared/review/20342773)** or **[GitHub⭐️](https://github.com/omuomuMG/Anki-Farm-Tycoon)**
 
+- I am looking for anything from **Programming proposals** to **Game system ideas** and **Advice**, as well as improvements to **Instruction** and **Translations**!
 # **Found a bug?**
 
 Please report it - I'am always working to improve the experience!
