@@ -3,12 +3,13 @@
 
 ## 🎮 How to Play
 - **Launch:** Tools > Anki Farm Tycoon
-- **Buy Animals/Land:** **Single-click** any empty cell (no popups!)
+- **Buy Animals:** **Single-click** any empty cell (no popups!)
+- **Sell Animals:** **Right-click** matured animal
 - **Expand Fields:** **Double-click** locked cell. 
 - **Study & Grow:** Answer Anki cards to make your animals grow automatically
 - **Harvest:** Sell animals when they reach 50%+ maturity by clicking their cell
 - **Level Up Animal:** Unlock new species and upgrade animals in the shop window
-- **Hire Employees:** Unlock new species and upgrade animals in the shop window
+- **Hire Employees:** Unlock and Level up from employee window
 - **Compete:** Check the **leaderboard** to see your global ranking! 🏆
 
 # 💰 How to Earn Money
