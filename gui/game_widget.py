@@ -3,10 +3,10 @@ import json
 import random
 import copy
 
-from PyQt6.QtWidgets import QWidget, QMenu, QMessageBox, QPushButton
-from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtWidgets import QMenu, QMessageBox, QPushButton, QLabel
+from PyQt6.QtCore import Qt, QUrl, QTimer
 from PyQt6.QtGui import QPainter, QColor, QCursor, QFont, QDesktopServices
-from aqt import gui_hooks
+from aqt import gui_hooks, mw
 
 from .base_window import BaseWindow
 from .employee_management_window import EmployeeManagementWindow
@@ -27,7 +27,6 @@ from ..constants import (
     INITIAL_MONEY, BASE_FIELD_PRICE, FIELD_PRICE_MULTIPLIER, ADDON_DIR, VERSION
 )
 from pathlib import Path
-from aqt import mw
 
 
 class GameWidget(BaseWindow):
@@ -550,6 +549,8 @@ class GameWidget(BaseWindow):
         action = menu.exec(QCursor.pos())
         return action.data() if action else None
 
+
+
     def get_field_price(self):
         """Calculate price for next field"""
         return int(BASE_FIELD_PRICE * (FIELD_PRICE_MULTIPLIER ** (self.unlocked_fields - 1)))
@@ -595,9 +596,7 @@ class GameWidget(BaseWindow):
 
     def show_purchase_message(self, message, success=True, duration=2500):
         """Show purchase result or instruction message"""
-        from PyQt6.QtCore import QTimer
-        from PyQt6.QtWidgets import QLabel
-        from PyQt6.QtCore import Qt
+
         
         # Clear existing message safely
         if hasattr(self, 'purchase_message_label') and self.purchase_message_label is not None:
@@ -924,52 +923,6 @@ class GameWidget(BaseWindow):
         
         # Show sale message at top of screen (optional)
         self.show_sale_message(animal_name, sell_price)
-
-    def show_cannot_sell_message(self, animal):
-        """Display message when animal cannot be sold"""
-        from PyQt6.QtCore import QTimer
-        from PyQt6.QtWidgets import QLabel
-        from PyQt6.QtCore import Qt
-        
-        # Safely delete existing message label if it exists
-        if hasattr(self, 'sale_message_label') and self.sale_message_label is not None:
-            try:
-                self.sale_message_label.deleteLater()
-            except RuntimeError:
-                pass  # Object already deleted
-            self.sale_message_label = None
-        
-        # Determine the reason why animal cannot be sold
-        animal_name = animal.animal_type.label
-        if animal.is_dead:
-            message = f"{animal_name} is dead and cannot be sold!"
-        elif animal.growth < 50:
-            message = f"{animal_name} needs more growth (current: {animal.growth}/50)!"
-        else:
-            message = f"{animal_name} cannot be sold right now!"
-        
-        # Create new message label with warning style
-        self.sale_message_label = QLabel(message, self)
-        self.sale_message_label.setStyleSheet("""
-            QLabel {
-                background-color: #e74c3c;
-                color: white;
-                font-weight: bold;
-                font-size: 14px;
-                padding: 10px;
-                border-radius: 5px;
-                border: 2px solid #c0392b;
-            }
-        """)
-        self.sale_message_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        # Position message at center top of screen
-        self.sale_message_label.resize(350, 40)
-        self.sale_message_label.move(
-            (self.width() - 350) // 2,
-            50
-        )
-        self.sale_message_label.show()
         
 
     def show_cannot_sell_message(self, animal):
@@ -1028,6 +981,55 @@ class GameWidget(BaseWindow):
                 self.sale_message_label = None
         
         QTimer.singleShot(2500, clear_message)  # Auto-hide after 2.5 seconds
+
+
+    def show_sale_message(self, animal_name, price):
+        """Display sale message temporarily"""
+        # PyQt imports required (add to top of file)
+        from PyQt6.QtCore import QTimer
+        from PyQt6.QtWidgets import QLabel
+        from PyQt6.QtCore import Qt
+        
+        # Safely delete existing message label if it exists
+        if hasattr(self, 'sale_message_label') and self.sale_message_label is not None:
+            try:
+                self.sale_message_label.deleteLater()
+            except RuntimeError:
+                pass  # Object already deleted
+            self.sale_message_label = None
+        
+        # Create new message label
+        self.sale_message_label = QLabel(f"{animal_name} sold for {price} coins!", self)
+        self.sale_message_label.setStyleSheet("""
+            QLabel {
+                background-color: #cb6838;
+                color: white;
+                font-weight: bold;
+                font-size: 14px;
+                padding: 10px;
+                border-radius: 5px;
+            }
+        """)
+        self.sale_message_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Position message at center top of screen
+        self.sale_message_label.resize(300, 40)
+        self.sale_message_label.move(
+            (self.width() - 300) // 2,
+            50
+        )
+        self.sale_message_label.show()
+        
+        # Remove message after 2 seconds and clear reference
+        def clear_message():
+            if hasattr(self, 'sale_message_label') and self.sale_message_label is not None:
+                try:
+                    self.sale_message_label.deleteLater()
+                except RuntimeError:
+                    pass  # Object already deleted
+                self.sale_message_label = None
+        
+        QTimer.singleShot(2000, clear_message)
 
     def called(self, reviewer, card, ease):
         """Handle Anki card review events"""
