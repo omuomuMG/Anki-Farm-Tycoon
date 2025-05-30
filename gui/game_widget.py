@@ -649,7 +649,7 @@ class GameWidget(BaseWindow):
                     pass
                 self.purchase_message_label = None
         
-        QTimer.singleShot(2500, clear_message)
+        QTimer.singleShot(duration, clear_message)
     
 
     def check_game_over(self):
