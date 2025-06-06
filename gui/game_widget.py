@@ -246,7 +246,7 @@ class GameWidget(BaseWindow):
                 price = field.animal.get_sale_price()
                 salary = int(price * employee.get_salary_rate())
                 self.money += (price - salary)
-                employee.total_earnings += salary
+                employee.total_earnings += price
                 employee.total_sales += 1
 
                 animal_type = field.animal.animal_type
@@ -923,6 +923,15 @@ class GameWidget(BaseWindow):
         
         # Show sale message at top of screen (optional)
         self.show_sale_message(animal_name, sell_price)
+
+        self.stats[animal.animal_type]["sold"] += 1
+        self.global_stats.total_animals_sold += 1
+        self.global_stats.total_money_earned += sell_price
+        self.global_stats.total_animals_sold_by_type[animal_name.upper()] += 1
+
+        field.remove_animal()
+        self.save_game()
+        self.save_global_stats()
         
 
     def show_cannot_sell_message(self, animal):
