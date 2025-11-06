@@ -132,6 +132,11 @@ A: The leaderboard tracks your total earned money and ranks you against other pl
 **Q: What changed with the new controls?**
 A: No more popup dialogs! Simply single-click to buy animals/land and double-click for advanced actions. Much faster and smoother!
 
+**Q: What should I do when an animal dies?🪦**
+A: After repeating the answer multiple times, the grave will be randomly removed!
+
+
+
 # 🤝 Contribution and Support
 
 - Contributions are welcome! Feel free to submit issues or pull requests on **[GitHub](https://github.com/omuomuMG/Anki-Farm-Tycoon)**!
