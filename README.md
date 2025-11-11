@@ -146,6 +146,8 @@ A: After repeating the answer multiple times, the grave will be randomly removed
 - I am looking for anything from **Programming proposals** to **Game system ideas** and **Advice**, as well as improvements to **Instruction** and **Translations**!
 # **Found a bug?**
 
+- Here is [CONTRIBUTING.md](https://github.com/omuomuMG/Anki-Farm-Tycoon/blob/master/docs/CONTRIBUTING.md) !
+
 Please report it - I'am always working to improve the experience!
 Please report
 **[Issue](https://github.com/omuomuMG/Anki-Farm-Tycoon/issues/new)**
