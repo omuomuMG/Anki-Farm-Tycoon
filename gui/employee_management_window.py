@@ -5,7 +5,7 @@ from PyQt6.QtCore import Qt
 
 from ..constants import GRID_SIZE
 from .base_window import BaseWindow
-from ..models.emploee import Employee
+from ..models.employee import Employee
 
 
 class EmployeeManagementWindow(BaseWindow):
