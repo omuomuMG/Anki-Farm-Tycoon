@@ -10,7 +10,7 @@ from aqt import gui_hooks, mw
 
 from .base_window import BaseWindow
 from .employee_management_window import EmployeeManagementWindow
-from ..models.emploee import Employee
+from ..models.employee import Employee
 from .animal_breed import AnimalBreed
 from .shop_window import ShopWindow
 from .statistics_window import StatisticsWindow
