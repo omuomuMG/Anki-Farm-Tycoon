@@ -4,7 +4,9 @@ from ..constants import (
     MAX_GROWTH, GROWTH_RATE,
     CHICKEN_PRODUCTION_CHANCE, COW_PRODUCTION_CHANCE,
     CHICKEN_MIN_PRODUCTION, CHICKEN_MAX_PRODUCTION,
-    COW_PRODUCTION_VALUE, PIG_PRODUCTION_CHANCE
+    COW_PRODUCTION_VALUE, PIG_PRODUCTION_CHANCE,
+    CHICKEN_GROWTH_RANGE, PIG_GROWTH_RANGE, COW_GROWTH_RANGE,
+    PIG_SALE_BONUS_PER_LEVEL
 )
 
 class Animal:
@@ -20,19 +22,27 @@ class Animal:
     def get_production_chance(self) -> float:
         """calculate production chance"""
         base_chance = {
-            AnimalType.PIG: 0.05,  # 5%
-            AnimalType.CHICKEN: 0.10,  # 10%
-            AnimalType.COW: 0.05  # 5%
+            AnimalType.PIG: PIG_PRODUCTION_CHANCE,
+            AnimalType.CHICKEN: CHICKEN_PRODUCTION_CHANCE,
+            AnimalType.COW: COW_PRODUCTION_CHANCE
         }.get(self.animal_type, 0)
 
         # レベルごとに1%ずつ上昇
         level_bonus = self.breed_level * 0.01
         return base_chance + level_bonus
 
+    def get_growth_range(self):
+        return {
+            AnimalType.CHICKEN: CHICKEN_GROWTH_RANGE,
+            AnimalType.PIG: PIG_GROWTH_RANGE,
+            AnimalType.COW: COW_GROWTH_RANGE
+        }.get(self.animal_type, (0, GROWTH_RATE))
+
     def grow(self):
         """Handle animal growth"""
         if not self.is_dead:
-            growth_increment = random.randint(0,3) + self.growth_boost
+            growth_min, growth_max = self.get_growth_range()
+            growth_increment = random.randint(growth_min, growth_max) + self.growth_boost
             self.growth = min(self.growth + growth_increment, self.max_growth)
             self.growth_boost = 0
             if self.growth >= self.max_growth:
@@ -57,7 +67,12 @@ class Animal:
         if self.is_dead:
             return 0
         growth_multiplier = 1 + (self.growth / 100)
-        return int(self.animal_type.price * growth_multiplier)
+        sale_price = self.animal_type.price * growth_multiplier
+
+        if self.animal_type == AnimalType.PIG and self.breed_level > 0:
+            sale_price *= (1 + (self.breed_level * PIG_SALE_BONUS_PER_LEVEL))
+
+        return int(sale_price)
 
     def can_sell(self):
         return not self.is_dead and self.growth >= 50
