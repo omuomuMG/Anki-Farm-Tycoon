@@ -206,6 +206,24 @@ class GameWidget(BaseWindow):
             }
         """)
 
+        self.buy_coffee_button = QPushButton("☕ Buy me a coffee", self)
+        self.buy_coffee_button.clicked.connect(
+            lambda: QDesktopServices.openUrl(QUrl("https://buymeacoffee.com/omuomumg"))
+        )
+        self.buy_coffee_button.setStyleSheet("""
+            QPushButton {
+                background-color: #A0522D;
+                color: white;
+                border: none;
+                padding: 5px;
+                border-radius: 3px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #cb6838;
+            }
+        """)
+
 
     def show_employee_management(self):
         """従業員管理ウィンドウを表示"""
@@ -851,6 +869,7 @@ class GameWidget(BaseWindow):
             self.rate_button.setGeometry(130, self.height() - 80, 100, 30)
             self.leader_board_button.setGeometry(10, self.height() - 120, 100, 30)
             self.github_button.setGeometry(130, self.height() - 120, 100, 30) 
+            self.buy_coffee_button.setGeometry(10, self.height() - 240, 220, 30)
 
 
 
