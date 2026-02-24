@@ -93,7 +93,7 @@ Anki Farm Tycoonに興味を持っていただき、ありがとうございま�
 **2. `scope` (任意):** 変更の範囲を示す（例：ファイル名や機能名）
 
 * `gui`: GUI関連 (`game_widget.py`, `shop_window.py` など)
-* `model`: データモデル (`animal.py`, `emploee.py` など)
+* `model`: データモデル (`animal.py`, `employee.py` など)
 * `save`: セーブ・ロード (`save_manager.py` など)
 * `leaderboard`: リーダーボード機能 (`leaderboard.py` など)
 
