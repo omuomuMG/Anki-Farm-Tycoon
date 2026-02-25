@@ -5,9 +5,9 @@ from ..models.animal_type import AnimalType
 class ResourceManager:
     @staticmethod
     def load_all_resources():
-        horse_path = RESOURCES_DIR / "hource.png"
+        horse_path = RESOURCES_DIR / "horse.png"
         if not horse_path.exists():
-            horse_path = RESOURCES_DIR / "horse.png"
+            horse_path = RESOURCES_DIR / "hource.png"
 
         resources = {
             'tile': QPixmap(str(RESOURCES_DIR / "ground.png")),
