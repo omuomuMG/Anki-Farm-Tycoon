@@ -25,7 +25,6 @@ You gamify your learning!!
 
 - Added **Horse** as a new unlockable animal
 - **No drops**, **very slow growth**, but **very high sale value**
-- New horse image support via `Resources/hource.png`
 
 ## ⚖️ Balance Updates
 
@@ -39,9 +38,6 @@ You gamify your learning!!
 ## 🧩 UI and UX Improvements
 
 - Added **Buy me a coffee** button near the main side-panel controls
-- Shop now supports **scrolling** for expanded animal lists
-- Employee `Specific animal type` now supports selecting **Horse**
-- Left panel statistics layout adjusted to prevent overlap with day display
 
 # Grow Animals by Answering Cards!!
 
@@ -130,7 +126,6 @@ You pay a small percentage of sales as their salary, but they work 24/7!
 - **[IMPROVED]** Added Buy me a coffee button in the side controls
 - **[IMPROVED]** Shop supports scrolling with the expanded animal list
 - **[IMPROVED]** Employee specific type mode now includes Horse
-- **[FIXED]** Left panel day/statistics overlap
 
 ## v1.5.0
 
@@ -182,7 +177,5 @@ or
 - <a href="https://buymeacoffee.com/omuomumg" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
 
 ---
-
-_Transform your Anki study sessions into an exciting farming adventure! 🌱_
 
 Credit: rasilsoh3641 (horse, rebalance idea)
