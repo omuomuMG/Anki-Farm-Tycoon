@@ -128,6 +128,7 @@ class EmployeeManagementWindow(BaseWindow):
             animal_dropdown.addItem("Chicken", "chicken")
             animal_dropdown.addItem("Pig", "pig")
             animal_dropdown.addItem("Cow", "cow")
+            animal_dropdown.addItem("Horse", "horse")
             
             # Set the current index based on employee preferences
             if employee.can_buy_chicken:
@@ -136,6 +137,8 @@ class EmployeeManagementWindow(BaseWindow):
                 animal_dropdown.setCurrentIndex(1)
             elif employee.can_buy_cow:
                 animal_dropdown.setCurrentIndex(2)
+            elif getattr(employee, "can_buy_horse", False):
+                animal_dropdown.setCurrentIndex(3)
             else:
                 animal_dropdown.setCurrentIndex(0)
             
@@ -173,6 +176,7 @@ class EmployeeManagementWindow(BaseWindow):
                     employee.can_buy_chicken = False
                     employee.can_buy_pig = False
                     employee.can_buy_cow = False
+                    employee.can_buy_horse = False
                 else:
                     self.update_animal_preference(employee, animal_dropdown.currentData())
                 
@@ -295,6 +299,7 @@ class EmployeeManagementWindow(BaseWindow):
             employee.can_buy_chicken = False
             employee.can_buy_pig = False
             employee.can_buy_cow = False
+            employee.can_buy_horse = False
         
             # Set only the selected preference
             if animal_type == "chicken":
@@ -303,6 +308,8 @@ class EmployeeManagementWindow(BaseWindow):
                 employee.can_buy_pig = True
             elif animal_type == "cow":
                 employee.can_buy_cow = True
+            elif animal_type == "horse":
+                employee.can_buy_horse = True
         
         # Save preferences to the save file
         employee.save_preferences()
@@ -321,6 +328,7 @@ class EmployeeManagementWindow(BaseWindow):
                         emp.can_buy_chicken = True
                         emp.can_buy_pig = False
                         emp.can_buy_cow = False
+                        emp.can_buy_horse = False
                         
                         # Save preferences explicitly
                         emp.save_preferences()

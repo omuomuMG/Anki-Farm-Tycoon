@@ -4,6 +4,7 @@ class AnimalType(Enum):
     PIG = ("Pig", 150, "🐷")
     CHICKEN = ("Chicken", 80, "🐔")
     COW = ("Cow", 300, "🐮")
+    HORSE = ("Horse", 1200, "🐎")
     EMPTY = ("Empty", 0, "")
 
     def __init__(self, label, price, emoji):

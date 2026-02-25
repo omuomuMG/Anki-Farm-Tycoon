@@ -43,7 +43,8 @@ class GameWidget(BaseWindow):
         self.breeds = {
             AnimalType.PIG: AnimalBreed(AnimalType.PIG),
             AnimalType.CHICKEN: AnimalBreed(AnimalType.CHICKEN),
-            AnimalType.COW: AnimalBreed(AnimalType.COW)
+            AnimalType.COW: AnimalBreed(AnimalType.COW),
+            AnimalType.HORSE: AnimalBreed(AnimalType.HORSE)
         }
 
         self.employees = {}
@@ -290,6 +291,7 @@ class GameWidget(BaseWindow):
         employee.can_buy_chicken = False
         employee.can_buy_pig = False
         employee.can_buy_cow = False
+        employee.can_buy_horse = False
         
         # Add to employees dictionary
         self.employees[name] = employee
@@ -346,7 +348,8 @@ class GameWidget(BaseWindow):
         self.stats = {
             AnimalType.PIG: {"sold": 0, "dead": 0},
             AnimalType.CHICKEN: {"sold": 0, "dead": 0},
-            AnimalType.COW: {"sold": 0, "dead": 0}
+            AnimalType.COW: {"sold": 0, "dead": 0},
+            AnimalType.HORSE: {"sold": 0, "dead": 0}
         }
 
         self.employees={}
@@ -354,12 +357,14 @@ class GameWidget(BaseWindow):
         self.breeds = {
             AnimalType.PIG: AnimalBreed(AnimalType.PIG),
             AnimalType.CHICKEN: AnimalBreed(AnimalType.CHICKEN),
-            AnimalType.COW: AnimalBreed(AnimalType.COW)
+            AnimalType.COW: AnimalBreed(AnimalType.COW),
+            AnimalType.HORSE: AnimalBreed(AnimalType.HORSE)
         }
 
         self.breeds[AnimalType.CHICKEN].is_unlocked = True
         self.breeds[AnimalType.PIG].is_unlocked = False
         self.breeds[AnimalType.COW].is_unlocked = False
+        self.breeds[AnimalType.HORSE].is_unlocked = False
 
         for breed in self.breeds.values():
             breed.level = 0
@@ -538,12 +543,18 @@ class GameWidget(BaseWindow):
                     employee_data["can_buy_cow"] = existing_emp["can_buy_cow"]
                 else:
                     employee_data["can_buy_cow"] = getattr(employee, "can_buy_cow", False)
+
+                if "can_buy_horse" in existing_emp:
+                    employee_data["can_buy_horse"] = existing_emp["can_buy_horse"]
+                else:
+                    employee_data["can_buy_horse"] = getattr(employee, "can_buy_horse", False)
             else:
                 # if the employee is new, set default values
                 employee_data["buy_randomly"] = getattr(employee, "buy_randomly", True)
                 employee_data["can_buy_chicken"] = getattr(employee, "can_buy_chicken", False)
                 employee_data["can_buy_pig"] = getattr(employee, "can_buy_pig", False)
                 employee_data["can_buy_cow"] = getattr(employee, "can_buy_cow", False)
+                employee_data["can_buy_horse"] = getattr(employee, "can_buy_horse", False)
                 
         
             game_state["employees"][emp_name] = employee_data
@@ -724,7 +735,8 @@ class GameWidget(BaseWindow):
             self.stats = {
                 AnimalType.PIG: {"sold": 0, "dead": 0},
                 AnimalType.CHICKEN: {"sold": 0, "dead": 0},
-                AnimalType.COW: {"sold": 0, "dead": 0}
+                AnimalType.COW: {"sold": 0, "dead": 0},
+                AnimalType.HORSE: {"sold": 0, "dead": 0}
             }
             
             self.employees = {}
@@ -733,11 +745,13 @@ class GameWidget(BaseWindow):
             self.breeds = {
                 AnimalType.PIG: AnimalBreed(AnimalType.PIG),
                 AnimalType.CHICKEN: AnimalBreed(AnimalType.CHICKEN),
-                AnimalType.COW: AnimalBreed(AnimalType.COW)
+                AnimalType.COW: AnimalBreed(AnimalType.COW),
+                AnimalType.HORSE: AnimalBreed(AnimalType.HORSE)
             }
             self.breeds[AnimalType.CHICKEN].is_unlocked = True
             self.breeds[AnimalType.PIG].is_unlocked = False
             self.breeds[AnimalType.COW].is_unlocked = False
+            self.breeds[AnimalType.HORSE].is_unlocked = False
             
             for breed in self.breeds.values():
                 breed.level = 0
@@ -812,10 +826,12 @@ class GameWidget(BaseWindow):
 
 
         # Draw statistics
-        self.paint_handler.draw_statistics(painter, self.stats, self.money)
-
-        painter.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        painter.drawText(10, 120, f"Day: {self.global_stats.current_day}")
+        self.paint_handler.draw_statistics(
+            painter,
+            self.stats,
+            self.money,
+            self.global_stats.current_day
+        )
 
         for y in range(GRID_SIZE):
             for x in range(GRID_SIZE):

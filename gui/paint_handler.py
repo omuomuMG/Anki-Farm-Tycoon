@@ -7,7 +7,7 @@ from ..constants import INITIAL_MONEY
 
 
 class PaintHandler:
-    def draw_statistics(self, painter: QPainter, stats: dict, money: int):
+    def draw_statistics(self, painter: QPainter, stats: dict, money: int, current_day: int):
         """Draw statistics panel"""
         painter.setPen(QColor(0, 0, 0))
         font = painter.font()
@@ -35,9 +35,10 @@ class PaintHandler:
             painter.drawText(50, 30, f"{money_increase}")
             painter.setPen(QColor(0, 0, 0))
 
+        painter.drawText(10, 45, f"Day: {current_day}")
 
         # Statistics
-        y_pos = 50
+        y_pos = 65
         font.setPointSize(11)
         painter.setFont(font)
         painter.drawText(10, y_pos, "Statistics:")
@@ -45,11 +46,11 @@ class PaintHandler:
 
         font.setBold(False)
         painter.setFont(font)
-        for animal_type in [AnimalType.PIG, AnimalType.CHICKEN, AnimalType.COW]:
+        for animal_type in [AnimalType.PIG, AnimalType.CHICKEN, AnimalType.COW, AnimalType.HORSE]:
             stat = stats[animal_type]
             text = f"{animal_type.emoji} {animal_type.label}: Sold: {stat['sold']}, Dead: {stat['dead']}"
             painter.drawText(10, y_pos, text)
-            y_pos += 20
+            y_pos += 18
 
     def draw_field(self, painter: QPainter, field, images: dict, pos_x: int, pos_y: int, cell_size: int):
         """Draw field and its contents"""

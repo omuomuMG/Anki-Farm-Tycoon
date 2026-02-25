@@ -5,7 +5,7 @@ from ..constants import (
     CHICKEN_PRODUCTION_CHANCE, COW_PRODUCTION_CHANCE,
     CHICKEN_MIN_PRODUCTION, CHICKEN_MAX_PRODUCTION,
     COW_PRODUCTION_VALUE, PIG_PRODUCTION_CHANCE,
-    CHICKEN_GROWTH_RANGE, PIG_GROWTH_RANGE, COW_GROWTH_RANGE,
+    CHICKEN_GROWTH_RANGE, PIG_GROWTH_RANGE, COW_GROWTH_RANGE, HORSE_GROWTH_RANGE,
     PIG_SALE_BONUS_PER_LEVEL
 )
 
@@ -21,6 +21,9 @@ class Animal:
 
     def get_production_chance(self) -> float:
         """calculate production chance"""
+        if self.animal_type == AnimalType.HORSE:
+            return 0.0
+
         base_chance = {
             AnimalType.PIG: PIG_PRODUCTION_CHANCE,
             AnimalType.CHICKEN: CHICKEN_PRODUCTION_CHANCE,
@@ -35,7 +38,8 @@ class Animal:
         return {
             AnimalType.CHICKEN: CHICKEN_GROWTH_RANGE,
             AnimalType.PIG: PIG_GROWTH_RANGE,
-            AnimalType.COW: COW_GROWTH_RANGE
+            AnimalType.COW: COW_GROWTH_RANGE,
+            AnimalType.HORSE: HORSE_GROWTH_RANGE
         }.get(self.animal_type, (0, GROWTH_RATE))
 
     def grow(self):
@@ -61,6 +65,8 @@ class Animal:
             elif self.animal_type == AnimalType.PIG:
                 self.grow()
                 return 1
+            elif self.animal_type == AnimalType.HORSE:
+                return 0
         return 0
 
     def get_sale_price(self):

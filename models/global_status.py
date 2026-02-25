@@ -18,18 +18,21 @@ class GlobalStats:
         self.total_animals_sold_by_type = {
             'PIG': 0,
             'CHICKEN': 0,
-            'COW': 0
+            'COW': 0,
+            'HORSE': 0
         }
         self.total_animals_died_by_type = {
             'PIG': 0,
             'CHICKEN': 0,
-            'COW': 0
+            'COW': 0,
+            'HORSE': 0
         }
 
         self.total_animals_production_by_type = {
             'PIG': 0,
             'CHICKEN': 0,
-            'COW': 0
+            'COW': 0,
+            'HORSE': 0
         }
 
     def update_money_record(self, current_money: int):
@@ -59,6 +62,7 @@ class GlobalStats:
     @classmethod
     def from_dict(cls, data: dict):
         stats = cls()
+        default_by_type = {'PIG': 0, 'CHICKEN': 0, 'COW': 0, 'HORSE': 0}
         stats.total_animals_sold = data.get("total_animals_sold", 0)
         stats.total_animals_dead = data.get("total_animals_dead", 0)
         stats.total_money_earned = data.get("total_money_earned", 0)
@@ -66,13 +70,16 @@ class GlobalStats:
         stats.highest_day = data.get("highest_day", 0)
         stats.current_day = data.get("current_day", 0)
         stats.answers_count = data.get("answers_count", 0)
-        stats.total_animals_sold_by_type = data.get("total_animals_sold_by_type", {
-            'PIG': 0, 'CHICKEN': 0, 'COW': 0
-        })
-        stats.total_animals_died_by_type = data.get("total_animals_died_by_type", {
-            'PIG': 0, 'CHICKEN': 0, 'COW': 0
-        })
-        stats.total_animals_production_by_type = data.get("total_animals_production_by_type", {
-            'PIG': 0, 'CHICKEN': 0, 'COW': 0
-        })
+        stats.total_animals_sold_by_type = {
+            **default_by_type,
+            **data.get("total_animals_sold_by_type", {})
+        }
+        stats.total_animals_died_by_type = {
+            **default_by_type,
+            **data.get("total_animals_died_by_type", {})
+        }
+        stats.total_animals_production_by_type = {
+            **default_by_type,
+            **data.get("total_animals_production_by_type", {})
+        }
         return stats

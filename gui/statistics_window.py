@@ -55,6 +55,13 @@ class StatisticsWindow(QDialog):
         layout.addWidget(QLabel(f"    Deaths: {global_stats.total_animals_died_by_type.get('COW', 0)}"))
         layout.addWidget(QLabel(f"    Milks : {global_stats.total_animals_production_by_type.get('COW', 0)}"))
 
+        horse_stats = QLabel("🐎 Horse:")
+        horse_stats.setStyleSheet(stat_style)
+        layout.addWidget(horse_stats)
+        layout.addWidget(QLabel(f"    Sold: {global_stats.total_animals_sold_by_type.get('HORSE', 0)}"))
+        layout.addWidget(QLabel(f"    Deaths: {global_stats.total_animals_died_by_type.get('HORSE', 0)}"))
+        layout.addWidget(QLabel("    Drops : None"))
+
 
 
         totals = QLabel("📈 Totals")
