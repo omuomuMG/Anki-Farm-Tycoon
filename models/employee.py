@@ -60,20 +60,16 @@ class Employee:
 
         if self.buy_randomly:
             choices = []
-            print(f"Employee {self.name} is choosing an animal to buy randomly.")
             choices.append(AnimalType.CHICKEN)
 
             if pig["is_unlocked"]:
                 choices.append(AnimalType.PIG)
-                print("Pig is added")
 
             if cow["is_unlocked"]:
                 choices.append(AnimalType.COW)
-                print("Cow is added")
 
             if horse["is_unlocked"]:
                 choices.append(AnimalType.HORSE)
-                print("Horse is added")
 
             import time
             random.seed(int(time.time()))
