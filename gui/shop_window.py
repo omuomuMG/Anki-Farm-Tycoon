@@ -1,5 +1,5 @@
-from PyQt6.QtWidgets import ( QVBoxLayout, QHBoxLayout, QLabel,
-                             QPushButton, QGridLayout, QFrame, QMessageBox)
+from PyQt6.QtWidgets import (QVBoxLayout, QLabel, QPushButton, QGridLayout,
+                             QFrame, QMessageBox, QScrollArea, QWidget)
 
 
 from .base_window import BaseWindow
@@ -24,11 +24,19 @@ class ShopWindow(BaseWindow):
 
 
 
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_content = QWidget()
+        self.scroll_layout = QVBoxLayout()
+        self.scroll_content.setLayout(self.scroll_layout)
+        self.scroll_area.setWidget(self.scroll_content)
+        self.main_layout.addWidget(self.scroll_area)
+
         self.frames = {}
-        for animal_type in [AnimalType.CHICKEN, AnimalType.PIG, AnimalType.COW]:
+        for animal_type in [AnimalType.CHICKEN, AnimalType.PIG, AnimalType.COW, AnimalType.HORSE]:
             frame = self.create_animal_frame(animal_type)
             self.frames[animal_type] = frame
-            self.main_layout.addWidget(frame)
+            self.scroll_layout.addWidget(frame)
 
         close_btn = QPushButton("Close")
         close_btn.setStyleSheet("""
@@ -147,10 +155,10 @@ class ShopWindow(BaseWindow):
             frame.deleteLater()
         self.frames.clear()
 
-        for animal_type in [AnimalType.CHICKEN, AnimalType.PIG, AnimalType.COW]:
+        for animal_type in [AnimalType.CHICKEN, AnimalType.PIG, AnimalType.COW, AnimalType.HORSE]:
             frame = self.create_animal_frame(animal_type)
             self.frames[animal_type] = frame
-            self.main_layout.insertWidget(self.main_layout.count() - 1, frame)
+            self.scroll_layout.addWidget(frame)
 
 
     def unlock_breed(self, animal_type):

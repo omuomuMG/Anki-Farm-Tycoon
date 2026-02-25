@@ -91,7 +91,7 @@ The `type(scope): subject` format is recommended.
 **2. `scope` (Optional):** The scope of the change (e.g., file name or feature name)
 
 * `gui`: GUI related (`game_widget.py`, `shop_window.py`, etc.)
-* `model`: Data model (`animal.py`, `emploee.py`, etc.)
+* `model`: Data model (`animal.py`, `employee.py`, etc.)
 * `save`: Save/Load (`save_manager.py`, etc.)
 * `leaderboard`: Leaderboard feature (`leaderboard.py`, etc.)
 
