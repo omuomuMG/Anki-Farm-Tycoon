@@ -9,7 +9,9 @@
 - **Study & Grow:** Answer Anki cards to make your animals grow automatically
 - **Harvest:** Sell animals when they reach 50%+ maturity by clicking their cell
 - **Level Up Animal:** Unlock new species and upgrade animals in the shop window
+- **Shop Scroll:** The shop now supports scrolling when there are many animals
 - **Hire Employees:** Unlock and Level up from employee window
+- **Employee Mode:** In `Specific animal type`, employees can now target Horse too
 - **Compete:** Check the **leaderboard** to see your global ranking! 🏆
 
 # 💰 How to Earn Money
@@ -41,6 +43,13 @@ Level up your animals to increase their production capabilities and earn more mo
 - **Production Price:** High 💰💰💰
 - **Strategy:** High-risk, high-reward investment for experienced farmers
 
+## 🐎 Horse
+- **Production:** None
+- **Production Chance:** 0%
+- **Production Price:** None
+- **Growth:** Very slow
+- **Strategy:** No drops, but huge sale value after long maturation
+
 # 👨‍💼 Employee System
 **Hire employees to automate your farm operations!**
 
@@ -50,6 +59,7 @@ Employees will automatically buy and sell animals for you, allowing you to focus
 - Automatic animal management
 - Continuous farm operation
 - More time to focus on learning
+- Specific mode support for Chicken, Pig, Cow, and Horse
 
 **Cost:** Small percentage of animal sales revenue
 
@@ -68,9 +78,10 @@ A: This indicates how likely an animal is to create valuable resources:
 - **Very low chance (Pig):** Rarely produces, but provides invaluable growth boosts to nearby animals
 
 **Q: How do the new controls work?**
-A: We've streamlined everything in v1.5.0:
+A: We've streamlined everything in v1.6.0:
 - **Single-click:** Instantly buy matured animals(no more popup dialogs!).
 - **Double-click:** Expand a new field by clicking a locked cell.
+- **Shop:** Scroll to browse all animals including Horse.
 - Much faster and smoother gameplay experience
 
 **Q: What's the leaderboard system?**

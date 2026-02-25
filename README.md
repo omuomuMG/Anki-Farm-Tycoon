@@ -2,9 +2,9 @@
 
 ![anki-farm-tycoon-logo](https://github.com/user-attachments/assets/868a0f03-4178-45ec-91e3-4ce4c99c8caf)
 
-Gamify your Anki. Become a billionaire by learning! 🐮🐔🐷
+Gamify your Anki. Become a billionaire by learning! 🐮🐔🐷🐎
 
-**🎉 New in v1.5.0: Leaderboard System, Enhanced Visuals & Streamlined Controls!**
+**🎉 New in v1.6.0: Horse Added, Balance Updates, and UI Improvements!**
 
 # Demo
 
@@ -19,25 +19,29 @@ You gamify your learning!!
 
 **🏆 NEW: Compete with others on the leaderboard and show off your farming achievements!**
 
-# ✨ What's New in v1.5.0
+# ✨ What's New in v1.6.0
 
-## 🏆 Leaderboard System
+## 🐎 New Animal: Horse
 
-- **Compete globally** with other Anki Farm Tycoon players!
-- Track your ranking and compare your farming progress
-- Show off your learning achievements to the community
+- Added **Horse** as a new unlockable animal
+- **No drops**, **very slow growth**, but **very high sale value**
+- New horse image support via `Resources/hource.png`
 
-## 🎨 Enhanced Visuals
+## ⚖️ Balance Updates
 
-- **Refreshed character designs** for a more engaging experience
-- **Improved field graphics** that make your farm look amazing
-- Better overall visual polish throughout the game
+- Animals now have different growth speeds:
+  - Chicken: Fast
+  - Pig: Medium
+  - Cow: Slow
+  - Horse: Very slow
+- Pig sale value now scales with breed level for better viability
 
-## 🖱️ Streamlined Controls
+## 🧩 UI and UX Improvements
 
-- **Single-click** to buy animals and land - no more popups!
-- **Double-click** for advanced actions
-- Much smoother and faster gameplay experience
+- Added **Buy me a coffee** button near the main side-panel controls
+- Shop now supports **scrolling** for expanded animal lists
+- Employee `Specific animal type` now supports selecting **Horse**
+- Left panel statistics layout adjusted to prevent overlap with day display
 
 # Grow Animals by Answering Cards!!
 
@@ -52,8 +56,7 @@ You gamify your learning!!
 - Sell animals that have over 50% maturity by clicking the cell
 - Unlock new species and level up in the shop window
 - **Check the leaderboard** to see how you rank against other players!
-<img width="725" alt="スクリーンショット 2025-05-30 17 12 46" src="https://github.com/user-attachments/assets/129ea164-d039-4f79-9f88-80fd08de425d" />
-
+  <img width="725" alt="スクリーンショット 2025-05-30 17 12 46" src="https://github.com/user-attachments/assets/129ea164-d039-4f79-9f88-80fd08de425d" />
 
 # How to Earn Money
 
@@ -85,6 +88,13 @@ If you level up your animals, they can produce valuable resources.
 - Production Chance: Low
 - Production Price: High
 
+## 🐎 Horse
+
+- Production: **None**
+- Production Chance: **0%**
+- Production Price: **None**
+- Strategy: Slow investment with high sale payout
+
 # 👨‍💼 Employee System
 
 Employees automatically buy and sell animals for you.
@@ -112,7 +122,17 @@ You pay a small percentage of sales as their salary, but they work 24/7!
 
 # Update History
 
-## v1.5.0 (Latest)
+## v1.6.0 (Latest)
+
+- **[NEW]** Added Horse animal (very slow growth, no drops, high sale value)
+- **[IMPROVED]** Rebalanced growth speeds by animal type
+- **[IMPROVED]** Pig sale profitability now scales with breed level
+- **[IMPROVED]** Added Buy me a coffee button in the side controls
+- **[IMPROVED]** Shop supports scrolling with the expanded animal list
+- **[IMPROVED]** Employee specific type mode now includes Horse
+- **[FIXED]** Left panel day/statistics overlap
+
+## v1.5.0
 
 - **[NEW]** Leaderboard system for global competition
 - **[IMPROVED]** Enhanced character and field visuals
@@ -135,8 +155,6 @@ A: No more popup dialogs! Simply single-click to buy animals/land and double-cli
 **Q: What should I do when an animal dies?🪦**
 A: After repeating the answer multiple times, the grave will be randomly removed!
 
-
-
 # 🤝 Contribution and Support
 
 - Contributions are welcome! Feel free to submit issues or pull requests on **[GitHub](https://github.com/omuomuMG/Anki-Farm-Tycoon)**!
@@ -144,6 +162,7 @@ A: After repeating the answer multiple times, the grave will be randomly removed
 - If you like AnkiFarmTycoon, please **[Rate👍](https://ankiweb.net/shared/review/20342773)** or **[GitHub⭐️](https://github.com/omuomuMG/Anki-Farm-Tycoon)**
 
 - I am looking for anything from **Programming proposals** to **Game system ideas** and **Advice**, as well as improvements to **Instruction** and **Translations**!
+
 # **Found a bug?**
 
 - Here is [CONTRIBUTING.md](https://github.com/omuomuMG/Anki-Farm-Tycoon/blob/master/docs/CONTRIBUTING.md) !
@@ -165,3 +184,5 @@ or
 ---
 
 _Transform your Anki study sessions into an exciting farming adventure! 🌱_
+
+Credit: rasilsoh3641 (horse, rebalance idea)
