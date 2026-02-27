@@ -3,10 +3,20 @@ from PyQt6.QtCore import Qt
 
 from ..utils.save_manager import SaveManager
 from ..models.animal_type import AnimalType
-from ..constants import INITIAL_MONEY
+from ..constants import INITIAL_MONEY, ANIMAL_RENDER_SETTINGS
 
 
 class PaintHandler:
+    @staticmethod
+    def _get_animal_render_config(animal_type: AnimalType, is_child: bool):
+        stage = "child" if is_child else "adult"
+        animal_config = ANIMAL_RENDER_SETTINGS.get(animal_type.name, {}).get(stage, {})
+        return {
+            "scale": animal_config.get("scale", 1.0),
+            "offset_x": animal_config.get("offset_x", 0),
+            "offset_y": animal_config.get("offset_y", 0),
+        }
+
     def draw_statistics(self, painter: QPainter, stats: dict, money: int, current_day: int):
         """Draw statistics panel"""
         painter.setPen(QColor(0, 0, 0))
@@ -78,12 +88,20 @@ class PaintHandler:
                 animal_image = images['animals'][animal_type]
                 child_images = images.get('child_animals', {})
                 child_image = child_images.get(animal_type)
-                if field.animal.growth < 50 and child_image and not child_image.isNull():
+                is_child = field.animal.growth < 50
+                if is_child and child_image and not child_image.isNull():
                     animal_image = child_image
-                animal_size = min(cell_size - 20, animal_image.width())
+
+                render_config = self._get_animal_render_config(animal_type, is_child)
+                base_animal_size = min(cell_size - 20, animal_image.width(), animal_image.height())
+                animal_scale = max(0.1, float(render_config["scale"]))
+                animal_size = max(1, int(base_animal_size * animal_scale))
+                offset_x = int(render_config["offset_x"])
+                offset_y = int(render_config["offset_y"])
+
                 painter.drawPixmap(
-                    pos_x + (cell_size - animal_size) // 2,
-                    pos_y + (cell_size - animal_size) // 2,
+                    pos_x + (cell_size - animal_size) // 2 + offset_x,
+                    pos_y + (cell_size - animal_size) // 2 + offset_y,
                     animal_size,
                     animal_size,
                     animal_image

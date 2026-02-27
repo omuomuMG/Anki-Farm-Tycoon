@@ -35,3 +35,25 @@ BASE_FIELD_PRICE = 500
 FIELD_PRICE_MULTIPLIER = 1.5
 
 VERSION = "1.6.0"
+
+# Animal render tuning (per animal x stage)
+# scale: Multiplier for base size
+# offset_x / offset_y: Pixel offset from centered position
+ANIMAL_RENDER_SETTINGS = {
+    "PIG": {
+        "adult": {"scale": 1.0, "offset_x": 0, "offset_y": 0},
+        "child": {"scale": 0.8, "offset_x": 0, "offset_y": 10},
+    },
+    "CHICKEN": {
+        "adult": {"scale": 0.9, "offset_x": 0, "offset_y": 0},
+        "child": {"scale": 0.7, "offset_x": 0, "offset_y": 10},
+    },
+    "COW": {
+        "adult": {"scale": 1.0, "offset_x": 0, "offset_y": 0},
+        "child": {"scale": 0.8, "offset_x": 0, "offset_y": 10},
+    },
+    "HORSE": {
+        "adult": {"scale": 1.0, "offset_x": 0, "offset_y": 0},
+        "child": {"scale": 0.9, "offset_x": 0, "offset_y": 10},
+    },
+}
