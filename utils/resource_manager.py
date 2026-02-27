@@ -21,6 +21,12 @@ class ResourceManager:
                 AnimalType.COW: QPixmap(str(RESOURCES_DIR / "cow.png")),
                 AnimalType.HORSE: QPixmap(str(horse_path))
             },
+            'child_animals': {
+                AnimalType.PIG: QPixmap(str(RESOURCES_DIR / "child_pig.png")),
+                AnimalType.CHICKEN: QPixmap(str(RESOURCES_DIR / "child_chicken.png")),
+                AnimalType.COW: QPixmap(str(RESOURCES_DIR / "child_cow.png")),
+                AnimalType.HORSE: QPixmap(str(RESOURCES_DIR / "child_horse.png"))
+            },
             'products': {
                 AnimalType.CHICKEN: QPixmap(str(RESOURCES_DIR / "egg.png")),
                 AnimalType.COW: QPixmap(str(RESOURCES_DIR / "milk.png")),
