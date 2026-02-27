@@ -74,7 +74,12 @@ class PaintHandler:
                 )
             else:
                 # Draw living animal
-                animal_image = images['animals'][field.animal.animal_type]
+                animal_type = field.animal.animal_type
+                animal_image = images['animals'][animal_type]
+                child_images = images.get('child_animals', {})
+                child_image = child_images.get(animal_type)
+                if field.animal.growth < 50 and child_image and not child_image.isNull():
+                    animal_image = child_image
                 animal_size = min(cell_size - 20, animal_image.width())
                 painter.drawPixmap(
                     pos_x + (cell_size - animal_size) // 2,
