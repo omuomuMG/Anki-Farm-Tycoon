@@ -3,12 +3,13 @@ import json
 import random
 import copy
 
-from PyQt6.QtWidgets import (QMenu, QMessageBox, QPushButton, QLabel, QWidget,
-                             QVBoxLayout, QHBoxLayout, QFrame, QSizePolicy, QGridLayout)
+from PyQt6.QtWidgets import QMenu, QMessageBox, QPushButton, QLabel
 from PyQt6.QtCore import Qt, QUrl, QTimer
 from PyQt6.QtGui import QPainter, QColor, QCursor, QFont, QDesktopServices
 from aqt import gui_hooks, mw
 
+from .base_window import BaseWindow
+from .employee_management_window import EmployeeManagementWindow
 from ..models.employee import Employee
 from .animal_breed import AnimalBreed
 from .shop_window import ShopWindow
@@ -22,805 +23,1135 @@ from ..utils.save_manager import SaveManager
 from ..gui.paint_handler import PaintHandler
 from .leaderboard import LeaderBoardWindow, get_user_data, update_user_data
 from ..constants import (
-    GRID_SIZE, INITIAL_MONEY, VERSION
+    INITIAL_CELL_SIZE, STATS_PANEL_WIDTH, GRID_SIZE,
+    INITIAL_MONEY, BASE_FIELD_PRICE, FIELD_PRICE_MULTIPLIER, ADDON_DIR, VERSION
 )
 from pathlib import Path
 
-# use QWidget 
-class GameWidget(QWidget):
+
+class GameWidget(BaseWindow):
     def __init__(self, parent=None):
-        QWidget.__init__(self, parent)
-        self.parent = parent
-        
+        super().__init__(parent)
+
         # Set window properties
-        self.setMinimumWidth(380)
-        self.setMaximumWidth(500)
-        self.setMinimumHeight(500)
-        
-        # 初始化数据
+        window_width = STATS_PANEL_WIDTH + (INITIAL_CELL_SIZE * GRID_SIZE)
+        window_height = INITIAL_CELL_SIZE * GRID_SIZE
+        self.setGeometry(100, 100, window_width, window_height)
+        self.setWindowTitle("Anki Farm Tycoon")
+
+
         self.breeds = {
             AnimalType.PIG: AnimalBreed(AnimalType.PIG),
             AnimalType.CHICKEN: AnimalBreed(AnimalType.CHICKEN),
             AnimalType.COW: AnimalBreed(AnimalType.COW),
             AnimalType.HORSE: AnimalBreed(AnimalType.HORSE)
         }
-        
+
         self.employees = {}
         self.load_game()
+
+        # Load resources
         self.resources = ResourceManager.load_all_resources()
+
+        # Initialize paint handler
         self.paint_handler = PaintHandler()
-        
+
         gui_hooks.reviewer_did_answer_card.append(self.called)
 
         self.global_stats = GlobalStats()
         self.load_global_stats()
-        
+
+        self.setup_buttons()
+
         self.last_unlock_click_time = 0
         self.double_click_threshold = 500
-        
-        # 游戏区域参数
-        self.game_offset_x = 0
-        self.game_offset_y = 0
-        self.cell_size = 60
-        
-        self.setup_ui()
 
-    def setup_ui(self):
-        """Create UI layout（创建 UI 布局）"""
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(5, 5, 5, 5)
-        main_layout.setSpacing(5)
         
-        # === Statistics Panel（统计面板） ===
-        stats_frame = QFrame()
-        stats_frame.setStyleSheet("background-color: #FFF8DC; border-radius: 5px;")
-        stats_frame.setFixedHeight(120)
-        
-        stats_layout = QVBoxLayout(stats_frame)
-        stats_layout.setContentsMargins(10, 3, 10, 3)
 
-        self.money_label = QLabel(f"Money: {self.money} coins")
-        self.money_label.setStyleSheet("font-size: 13px; font-weight: bold; margin: 0px;")
-        stats_layout.addWidget(self.money_label)
 
-        self.day_label = QLabel(f"Day: {self.global_stats.current_day}")
-        self.day_label.setStyleSheet("font-size: 11px; margin: 0px;")
-        stats_layout.addWidget(self.day_label)
-        
-        # Statistical information（统计信息）
-        stats_grid = QGridLayout()
-        
-        stats_grid.setContentsMargins(0, 0, 0, 0)  # 移除边距
-        self.stat_labels = {}
-        animals = [AnimalType.PIG, AnimalType.CHICKEN, AnimalType.COW, AnimalType.HORSE]
-        for i, animal_type in enumerate(animals):
-            row = i // 2  # 0, 0, 1, 1
-            col = i % 2  # 0, 1, 0, 1
-            label = QLabel(f"{animal_type.emoji} {animal_type.label}: Sold 0, Dead 0")
-            label.setStyleSheet("font-size: 10px;")
-            self.stat_labels[animal_type] = label
-            stats_grid.addWidget(label, row, col)
-        stats_layout.addLayout(stats_grid)
-        
-        main_layout.addWidget(stats_frame)
-        
-        # === 游戏区域 ===
-        self.game_widget = QWidget()
-        self.game_widget.setMinimumHeight(300)
+    def setup_buttons(self):
 
-        main_layout.addWidget(self.game_widget, stretch=1)
-        
-        # 关键：绑定绘制和鼠标事件到 game_widget
-        self.game_widget.paintEvent = self.draw_game_area
-        self.game_widget.mousePressEvent = self.handle_game_click
+        # Rate button
+        self.rate_button = QPushButton("👍Rate", self)
+        self.rate_button.clicked.connect(lambda: QDesktopServices.openUrl(
+            QUrl("https://ankiweb.net/shared/review/20342773")))
+        self.rate_button.setStyleSheet("""
+                    QPushButton {
+                        background-color: #A0522D;
+                        color: white;
+                        border: none;
+                        border-radius: 3px;
+                    }
+                    QPushButton:hover {
+                        background-color: #cb6838;
+                    }
+                    
+                """)
 
-        # ========== Money 显示（带收益提示）==============
-        money_row = QHBoxLayout()
-        self.money_label = QLabel(f"Money: {self.money} coins")
-        self.money_label.setStyleSheet("font-size: 13px; font-weight: bold; margin: 0px;")
 
-        # Profit prompt label (green/red)
-        self.money_change_label = QLabel("")
-        self.money_change_label.setStyleSheet("""
-            QLabel {
-                color: #27ae60;
-                font-size: 11px;
-                font-weight: bold;
-                margin-left: 5px;
-            }
-        """)
-        money_row.addWidget(self.money_label)
-        money_row.addWidget(self.money_change_label)
-        money_row.addStretch()
-        stats_layout.addLayout(money_row)
-
-        # === Button panel 按钮面板 ===
-        controls_frame = QFrame()
-        controls_frame.setFixedHeight(220)  # 固定高度确保显示完整
-        controls_frame.setStyleSheet("background-color: #f0f0f0; border-radius: 5px;")
-        controls_layout = QVBoxLayout(controls_frame)
-        controls_layout.setSpacing(5)
-        controls_layout.setContentsMargins(8, 8, 8, 8)
-        
-        btn_style = """
+        # Instruction button
+        self.instruction_button = QPushButton("📗Instruction", self)
+        self.instruction_button.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/omuomuMG/Anki-Farm-Tycoon/blob/master/Instruction.md")))
+        self.instruction_button.setStyleSheet("""
             QPushButton {
                 background-color: #A0522D;
                 color: white;
                 border: none;
                 padding: 5px;
-                border-radius: 4px;
-                font-size: 11px;
-                min-height: 26px;
+                border-radius: 3px;
             }
-            QPushButton:hover { background-color: #cb6838; }
-        """
-        
-        # Button row
-        for texts, callbacks in [
-            (["🐾 Shop", "👨‍🌾 Employee"], [self.show_shop, self.show_employee_management]),
-            (["👑 Leader", "⭐ GitHub"], [self.show_leaderboard, 
-                lambda: QDesktopServices.openUrl(QUrl("https://github.com/omuomuMG/Anki-Farm-Tycoon"))]),
-            (["📈 Stats", "👍 Rate"], [self.show_statistics,
-                lambda: QDesktopServices.openUrl(QUrl("https://ankiweb.net/shared/review/20342773"))]),
-            (["🔄 Reset", "📗 Help"], [self.reset_game,
-                lambda: QDesktopServices.openUrl(QUrl("https://github.com/omuomuMG/Anki-Farm-Tycoon/blob/master/Instruction.md"))]),
-        ]:
-            row = QHBoxLayout()
-            for text, callback in zip(texts, callbacks):
-                btn = QPushButton(text)
-                btn.setStyleSheet(btn_style)
-                btn.clicked.connect(callback)
-                row.addWidget(btn)
-            controls_layout.addLayout(row)
-        
-        # coffee_btn
-        coffee_btn = QPushButton("☕ Buy me a coffee")
-        coffee_btn.setStyleSheet(btn_style)
-        coffee_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://buymeacoffee.com/omuomumg")))
-        controls_layout.addWidget(coffee_btn)
-        
-        main_layout.addWidget(controls_frame)
-        self.update_stat_labels()
-
-    def show_money_change(self, amount, source=""):
-        """显示金钱变化提示"""
-        if amount == 0:
-            return
-
-        # Set text and color
-        if amount > 0:
-            text = f"+{amount}"
-            color = "#27ae60"  # 绿色
-        else:
-            text = f"{amount}"
-            color = "#e74c3c"  # 红色
-
-        if source:
-            text += f" ({source})"
-
-        self.money_change_label.setText(text)
-        self.money_change_label.setStyleSheet(f"""
-            QLabel {{
-                color: {color};
-                font-size: 11px;
-                font-weight: bold;
-                margin-left: 5px;
-            }}
+            QPushButton:hover {
+                background-color: #cb6838;
+            }
         """)
 
-        # 2秒后清除
-        QTimer.singleShot(50, lambda: self.money_change_label.setText(""))
-
-    def update_money_display(self, change=0, source=""):
-        """更新金钱显示"""
-        self.money_label.setText(f"Money: {self.money} coins")
-        if change != 0:
-            self.show_money_change(change, source)
-
-    def update_stat_labels(self):
-        """Updated statistics"""
-        self.money_label.setText(f"Money: {self.money} coins")
-        self.day_label.setText(f"Day: {self.global_stats.current_day}")
-        for animal_type in [AnimalType.PIG, AnimalType.CHICKEN, AnimalType.COW, AnimalType.HORSE]:
-            stat = self.stats[animal_type]
-            self.stat_labels[animal_type].setText(
-                 f"{animal_type.emoji} {animal_type.label}: Sold {stat['sold']}, Dead {stat['dead']}"
-            )
-
-    def draw_game_area(self, event):
-        """绘制游戏区域 """
-        painter = QPainter(self.game_widget)
-        
-        # 获取 game_widget 的实际尺寸
-        widget_width = self.game_widget.width()
-        widget_height = self.game_widget.height()
-        
-        # 计算格子大小（适应窗口）
-        self.cell_size = min(widget_width // GRID_SIZE, widget_height // GRID_SIZE)
-        self.cell_size = max(50, min(self.cell_size, 80))  # 限制范围
-        
-        # 计算居中偏移
-        grid_width = self.cell_size * GRID_SIZE
-        grid_height = self.cell_size * GRID_SIZE
-        self.game_offset_x = (widget_width - grid_width) // 2
-        self.game_offset_y = (widget_height - grid_height) // 2
-        
-        # 绘制每个格子
-        for y in range(GRID_SIZE):
-            for x in range(GRID_SIZE):
-                field = self.fields[y][x]
-                field_number = y * GRID_SIZE + x + 1
-                
-                # 关键：使用相对于 game_widget 的坐标
-                pos_x = self.game_offset_x + (x * self.cell_size)
-                pos_y = self.game_offset_y + (y * self.cell_size)
-
-                # Draw field background
-                if field_number <= self.unlocked_fields:
-                    # 绘制地面
-                    painter.drawPixmap(
-                        pos_x, pos_y, 
-                        self.cell_size, self.cell_size,
-                        self.resources['tile']
-                    )
-                    # Draw field contents (animal, growth, etc.) 绘制动物
-                    self.draw_field_content(painter, field, pos_x, pos_y)
-                else:
-                    # Draw locked field 绘制锁定格子
-                    painter.drawPixmap(
-                        pos_x, pos_y,
-                        self.cell_size, self.cell_size,
-                        self.resources['locked_tile']
-                    )
-                    # Draw lock icon 绘制锁
-                    painter.setPen(QColor(0,0,0))
-                    painter.drawText(
-                        pos_x + self.cell_size//2 - 10,
-                        pos_y + self.cell_size//2 + 5,
-                        "🔒"
-                    )
-
-    def draw_field_content(self, painter, field, pos_x, pos_y):
-        """绘制格子内容（动物等）"""
-        if not field.animal:
-            return
-            
-        animal = field.animal
-        cell_size = self.cell_size
-        
-        if animal.is_dead:
-            # 绘制坟墓
-            grave_size = min(cell_size - 10, 40)
-            painter.drawPixmap(
-                pos_x + (cell_size - grave_size)//2,
-                pos_y + (cell_size - grave_size)//2,
-                grave_size, grave_size,
-                self.resources['grave']
-            )
-        else:
-            # 绘制动物
-            animal_type = animal.animal_type
-            animal_img = self.resources['animals'][animal_type]
-            
-            # 判断是否幼年
-            is_child = animal.growth < 50
-            if is_child and animal_type in self.resources.get('child_animals', {}):
-                child_img = self.resources['child_animals'][animal_type]
-                if not child_img.isNull():
-                    animal_img = child_img
-            
-            # 计算绘制大小
-            img_size = min(cell_size - 15, 50)
-            painter.drawPixmap(
-                pos_x + (cell_size - img_size)//2,
-                pos_y + 5,
-                img_size, img_size,
-                animal_img
-            )
-            
-            # 绘制成长度文字
-            painter.setPen(QColor(0,0,0))
-            font = painter.font()
-            font.setPointSize(8)
-            painter.setFont(font)
-            
-            growth_text = f"{int(animal.growth)}%"
-            if animal.can_sell():
-                growth_text += f" ${animal.get_sale_price()}"
-            
-            painter.drawText(
-                pos_x + 3,
-                pos_y + cell_size - 3,
-                growth_text
-            )
-            
-            # 绘制产物
-            if animal.has_product:
-                product_img = self.resources['products'].get(animal_type)
-                if product_img:
-                    p_size = cell_size // 3
-                    painter.drawPixmap(
-                        pos_x + cell_size - p_size - 2,
-                        pos_y + cell_size - p_size - 2,
-                        p_size, p_size,
-                        product_img
-                    )
 
 
+        # Shop button
+        self.shop_button = QPushButton("🐾Shop", self)
+        self.register_button(self.shop_button, self.show_shop)
+        self.shop_button.setStyleSheet("""
+            QPushButton {
+                background-color: #A0522D;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                font-size: 18px;
+            }
+            QPushButton:hover {
+                background-color: #cb6838;
+            }
+        """)
+        self.shop_button.setMinimumSize(60, 60) 
+        self.shop_button.resize(60, 60)  
 
-    def buy_animal(self, x, y):
-        """购买动物"""
-        field = self.fields[y][x]
-        selected_type = self.show_animal_selection_dialog()
-        if selected_type:
-            if self.money >= selected_type.price:
-                self.money -= selected_type.price
-                breed_level = self.breeds[selected_type].level
-                field.add_animal(Animal(selected_type, breed_level=breed_level))
+        # Employee button
+        self.employee_button = QPushButton("👨‍🌾Employee", self)
+        self.register_button(self.employee_button, self.show_employee_management)
+        self.employee_button.setStyleSheet("""
+            QPushButton {
+                background-color: #A0522D;
+                color: white;
+                border: none;
+                padding: 0px;
+                border-radius: 5px;
+                font-size: 17px;
+                                           
+            }
+            QPushButton:hover {
+                background-color: #cb6838;
+            }
+        """)
+        self.employee_button.setMinimumSize(60, 60) 
+        self.employee_button.resize(60, 60)  
+
+        # Statistics button
+        self.stats_button = QPushButton("📈Statistics", self)
+        self.register_button(self.stats_button, self.show_statistics)
+        self.stats_button.setStyleSheet("""
+            QPushButton {
+                background-color: #A0522D;
+                color: white;
+                border: none;
+                padding: 5px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #cb6838;
+            }
+        """)
+
+        # Reset button
+        self.reset_button = QPushButton("🔄Reset Game", self)
+        self.register_button(self.reset_button, self.reset_game)
+        self.reset_button.setStyleSheet("""
+            QPushButton {
+                background-color: #A0522D;
+                color: white;
+                border: none;
+                padding: 5px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #cb6838;
+            }
+        """)
+
+        # LeaderBoard button
+        self.leader_board_button = QPushButton("👑Leader Board", self)
+        self.register_button(self.leader_board_button, self.show_leaderboard)
+        self.leader_board_button.setStyleSheet("""
+            QPushButton {
+                background-color: #A0522D;
+                color: white;
+                border: none;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #cb6838;
+            }
+        """)
+
+        self.github_button = QPushButton("⭐️GitHub", self)
+        self.github_button.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/omuomuMG/Anki-Farm-Tycoon")))
+        self.github_button.setStyleSheet("""
+            QPushButton {
+                background-color: #A0522D;
+                color: white;
+                border: none;
+                padding: 5px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #cb6838;
+            }
+        """)
+
+        self.buy_coffee_button = QPushButton("☕ Buy me a coffee", self)
+        self.buy_coffee_button.clicked.connect(
+            lambda: QDesktopServices.openUrl(QUrl("https://buymeacoffee.com/omuomumg"))
+        )
+        self.buy_coffee_button.setStyleSheet("""
+            QPushButton {
+                background-color: #A0522D;
+                color: white;
+                border: none;
+                padding: 5px;
+                border-radius: 3px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #cb6838;
+            }
+        """)
+
+
+    def show_employee_management(self):
+        """従業員管理ウィンドウを表示"""
+        employee_window = EmployeeManagementWindow(self)
+        employee_window.exec()
+
+    def get_field_by_position(self, position: int):
+        y = position // GRID_SIZE
+        x = position % GRID_SIZE
+
+        if 0 <= y < len(self.fields) and 0 <= x < len(self.fields[y]):
+            return self.fields[y][x]
+        return None
+
+    def get_field_by_employee(self, employee: Employee):
+        if 0 <= employee.y < len(self.fields) and 0 <= employee.x < len(self.fields[employee.y]):
+            return self.fields[employee.y][employee.x]
+        return None
+
+    def update_employees(self):
+        for employee in self.employees.values():
+            if not employee.enabled:
+                continue
+
+            field = self.get_field_by_employee(employee)
+            if not field:
+                continue
+
+            # if animal does not exit field
+            if not field.animal:
+                animal_type = employee.choose_animal_to_buy()
+                if self.money >= animal_type.price:
+                    self.money -= animal_type.price
+                    field.add_animal(Animal(animal_type, breed_level=self.breeds[animal_type].level))
+
+            # if animal does exit field
+            elif field.animal and employee.should_sell_animal(field.animal):
+                price = field.animal.get_sale_price()
+                salary = int(price * employee.get_salary_rate())
+                self.money += (price - salary)
+                employee.total_earnings += price
+                employee.total_sales += 1
+
+                animal_type = field.animal.animal_type
+                self.stats[animal_type]["sold"] += 1
+                self.global_stats.total_animals_sold += 1
+                self.global_stats.total_money_earned += price
+                self.global_stats.total_animals_sold_by_type[animal_type.name] += 1
+
+                field.remove_animal()
                 self.save_game()
-                self.update()
-                self.update_stat_labels()
-                # 显示花费
-                self.update_money_display(-selected_type.price, f"buy {selected_type.label}")
-            else:
-                QMessageBox.warning(self, "Cannot Buy", 
-                    f"Not enough money! Need {selected_type.price} coins")
+                self.save_global_stats()
 
-    def show_animal_selection_dialog(self):
-        """显示动物选择菜单"""
-        menu = QMenu(self)
-        for animal_type in AnimalType:
-            if animal_type != AnimalType.EMPTY:
-                breed = self.breeds[animal_type]
-                if breed.is_unlocked:
-                    action = menu.addAction(
-                        f"{animal_type.emoji} {animal_type.label} ({animal_type.price} coins)")
-                    action.setData(animal_type)
-                else:
-                    action = menu.addAction(
-                        f"{animal_type.emoji} {animal_type.label} (Locked - {breed.get_unlock_cost()} coins)")
-                    action.setEnabled(False)
+    def hire_employee(self, x: int, y: int) -> bool:
+        for emp in self.employees.values():
+            if emp.x == x and emp.y == y:
+                return False
+        field_number = y * GRID_SIZE + x
+        name = chr(65 + field_number)
+        employee = Employee(name=name, x=x, y=y)
         
-        action = menu.exec(QCursor.pos())
-        return action.data() if action else None
+        # Set default animal buying preferences (default to chicken only)
+        employee.buy_randomly = True
+        employee.can_buy_chicken = False
+        employee.can_buy_pig = False
+        employee.can_buy_cow = False
+        employee.can_buy_horse = False
+        
+        # Add to employees dictionary
+        self.employees[name] = employee
+        
+        # Save employee preferences to ensure they're stored in JSON
+        employee.save_preferences()
+        
+        self.update()
+        return True
 
+    def upgrade_employee(self, employee: Employee):
+        """level up employee"""
+        if employee.level >= employee.max_level:
+            return False
 
+        cost = employee.get_upgrade_cost()
+        if self.money >= cost:
+            self.money -= cost
+            employee.level += 1
+            self.save_game()
+            return True
+        return False
 
-
+    def toggle_employee(self, employee: Employee):
+        employee.enabled = not employee.enabled
+        self.save_game()
 
     def show_shop(self):
         shop_window = ShopWindow(self)
         shop_window.exec()
 
-    def show_employee_management(self):
-        from .employee_management_window import EmployeeManagementWindow
-        employee_window = EmployeeManagementWindow(self)
-        employee_window.exec()
-
     def show_statistics(self):
+        """Show statistics window"""
         stats_window = StatisticsWindow(self.global_stats, self)
         stats_window.exec()
 
-
-
-
-
-    def show_temp_message(self, text, color_type="blue"):
-        """通用临时消息显示"""
-        colors = {
-            "red": "#e74c3c",
-            "blue": "#3498db",
-            "orange": "#f39c12",
-            "green": "#27ae60"
-        }
-        color = colors.get(color_type, "#3498db")
-
-        msg = QLabel(text, self.game_widget)
-        msg.setStyleSheet(f"""
-            QLabel {{
-                background-color: {color};
-                color: white;
-                padding: 8px 12px;
-                border-radius: 4px;
-                font-size: 12px;
-                font-weight: bold;
-            }}
-        """)
-        msg.adjustSize()
-
-        # 确保不超出边界
-        x = max(10, (self.game_widget.width() - msg.width()) // 2)
-        y = 10
-        msg.move(x, y)
-        msg.show()
-        msg.raise_()
-
-        QTimer.singleShot(2000, msg.deleteLater)
-
-    def try_unlock_field(self):
-        """尝试解锁新土地 - 修复提示"""
-        import time
-        current_time = int(time.time() * 1000)
-
-        cost = 500 + (self.unlocked_fields * 200)
-
-        if self.money < cost:
-            self.show_temp_message(f"Need {cost} coins!", "red")
-            return
-
-        if current_time - self.last_unlock_click_time < self.double_click_threshold:
-            self.money -= cost
-            self.unlocked_fields += 1
-            self.save_game()
-            self.update_stat_labels()
-            self.update()
-            self.last_unlock_click_time = 0
-
-            # 显示花费（负数表示支出）
-            self.update_money_display(-cost, "unlock land")
-            self.show_temp_message(f"New land unlocked!", "blue")
-
-            self.show_temp_message(f"New land! Cost: {cost}", "blue")
-        else:
-            self.last_unlock_click_time = current_time
-            self.show_temp_message(f"Double-click to unlock ({cost})", "orange")
-
-
-    # 数据加载保存方法（保持原逻辑）
     def load_game(self):
+        """Load or initialize game state"""
         save_data = SaveManager.load_game()
         if save_data:
             self.load_saved_game(save_data)
         else:
             self.initialize_new_game()
 
+
     def initialize_new_game(self):
+        """Initialize a new game state"""
+
         self.money = INITIAL_MONEY
+        self.previous_money = INITIAL_MONEY
+
         self.unlocked_fields = 1
+
         self.stats = {
             AnimalType.PIG: {"sold": 0, "dead": 0},
             AnimalType.CHICKEN: {"sold": 0, "dead": 0},
             AnimalType.COW: {"sold": 0, "dead": 0},
             AnimalType.HORSE: {"sold": 0, "dead": 0}
         }
-        self.employees = {}
-        
+
+        self.employees={}
+
+        self.breeds = {
+            AnimalType.PIG: AnimalBreed(AnimalType.PIG),
+            AnimalType.CHICKEN: AnimalBreed(AnimalType.CHICKEN),
+            AnimalType.COW: AnimalBreed(AnimalType.COW),
+            AnimalType.HORSE: AnimalBreed(AnimalType.HORSE)
+        }
+
+        self.breeds[AnimalType.CHICKEN].is_unlocked = True
+        self.breeds[AnimalType.PIG].is_unlocked = False
+        self.breeds[AnimalType.COW].is_unlocked = False
+        self.breeds[AnimalType.HORSE].is_unlocked = False
+
         for breed in self.breeds.values():
             breed.level = 0
-            breed.is_unlocked = (breed.animal_type == AnimalType.CHICKEN)
-        
-        self.fields = [[Field(x, y) for x in range(GRID_SIZE)] for y in range(GRID_SIZE)]
-        self.save_game()
 
-    def load_saved_game(self, save_data):
-        self.money = save_data.get("money", INITIAL_MONEY)
-        self.unlocked_fields = save_data.get("unlocked_fields", 1)
-        
-        self.stats = {}
-        for animal_type in AnimalType:
-            if animal_type != AnimalType.EMPTY:
-                self.stats[animal_type] = save_data.get("stats", {}).get(
-                    animal_type.name, {"sold": 0, "dead": 0}
-                )
-        
+        # Initialize fields
         self.fields = []
-        saved_fields = save_data.get("fields", [])
         for y in range(GRID_SIZE):
             row = []
             for x in range(GRID_SIZE):
-                field = Field(x, y)
+                row.append(Field(x, y))
+            self.fields.append(row)
+
+        self.save_game()
+
+
+    def load_saved_game(self, save_data):
+        self.money = save_data["money"]
+        self.unlocked_fields = save_data["unlocked_fields"]
+
+        # Load statistics
+        self.stats = {}
+        for animal_type in AnimalType:
+            if animal_type != AnimalType.EMPTY:
+                self.stats[animal_type] = save_data["stats"].get(
+                    animal_type.name, {"sold": 0, "dead": 0}
+                )
+
+        # Load fields
+        self.fields = []
+        saved_fields = save_data.get("fields", [])
+
+        for y in range(GRID_SIZE):
+            row = []
+            for x in range(GRID_SIZE):
                 if y < len(saved_fields) and x < len(saved_fields[y]):
                     field_data = saved_fields[y][x]
-                    if field_data.get("animal"):
-                        animal_data = field_data["animal"]
+                    field = Field(field_data["x"], field_data["y"])
+
+                    animal_data = field_data.get("animal")
+                    if animal_data:
                         animal_type = AnimalType[animal_data["type"]]
-                        animal = Animal(animal_type, breed_level=self.breeds[animal_type].level)
-                        animal.growth = animal_data.get("growth", 0)
-                        animal.is_dead = animal_data.get("is_dead", False)
-                        animal.has_product = animal_data.get("has_product", False)
+                        breed_level = self.breeds[animal_type].level
+                        animal = Animal(animal_type, breed_level=breed_level)
+                        animal.growth = animal_data["growth"]
+                        animal.is_dead = animal_data["is_dead"]
+                        animal.has_product = animal_data["has_product"]
+                        animal.max_growth = animal_data["max_growth"]
                         field.animal = animal
+                else:
+                    field = Field(x, y)
                 row.append(field)
             self.fields.append(row)
-        
-        # 加载 breeds
+
         breeds_data = save_data.get("breeds", {})
         for animal_type in AnimalType:
             if animal_type != AnimalType.EMPTY:
                 breed_data = breeds_data.get(animal_type.name, {})
                 self.breeds[animal_type].level = breed_data.get("level", 0)
                 self.breeds[animal_type].is_unlocked = breed_data.get(
-                    "is_unlocked", animal_type == AnimalType.CHICKEN
+                    "is_unlocked",
+                    animal_type == AnimalType.CHICKEN
                 )
 
+        self.employees = {}
+        employees_data = save_data.get("employees", {})
+        for emp_name, emp_data in employees_data.items():
+            x = emp_data.get("x", 0)
+            y = emp_data.get("y", 0)
+
+            employee = Employee(
+                name=emp_data["name"],
+                x=x,
+                y=y
+            )
+            employee.level = emp_data.get("level", 1)
+            employee.enabled = emp_data.get("enabled", True)
+            employee.total_earnings = emp_data.get("total_earnings", 0)
+            employee.total_sales = emp_data.get("total_sales", 0)
+
+            self.employees[emp_name] = employee
+
+        # ここで各従業員の好みをJSONから読み込み直す
+        for employee in self.employees.values():
+            employee.load_preferences()
+
+        print(f"Loaded employees: {[(emp.name, emp.x, emp.y) for emp in self.employees.values()]}")
+
     def save_game(self):
+        previous_money = INITIAL_MONEY
+        save_data = SaveManager.load_game()
+        
+        
+        existing_employees = {}
+        if save_data and "employees" in save_data:
+            existing_employees = save_data["employees"]
+        
+        if save_data and "money" in save_data:
+            previous_money = save_data["money"]
+
         game_state = {
             "Version": VERSION,
             "money": self.money,
-            "previous_money": getattr(self, 'previous_money', self.money),  # 添加这行
+            "previous_money": previous_money,
             "unlocked_fields": self.unlocked_fields,
-            "stats": {k.name: v for k, v in self.stats.items()},
-            "fields": [[{
-                "x": f.x, "y": f.y,
-                "animal": {
-                    "type": f.animal.animal_type.name,
-                    "growth": f.animal.growth,
-                    "is_dead": f.animal.is_dead,
-                    "has_product": f.animal.has_product,
-                } if f.animal else None
-            } for f in row] for row in self.fields],
+            "stats": {
+                animal_type.name: stats
+                for animal_type, stats in self.stats.items()
+            },
+            "fields": [
+                [
+                    {
+                        "x": field.x,
+                        "y": field.y,
+                        "animal": {
+                            "type": field.animal.animal_type.name,
+                            "growth": field.animal.growth,
+                            "is_dead": field.animal.is_dead,
+                            "has_product": field.animal.has_product,
+                            "max_growth": field.animal.max_growth
+                        } if field.animal else None
+                    }
+                    for field in row
+                ]
+                for row in self.fields
+            ],
             "breeds": {
-                k.name: {"level": v.level, "is_unlocked": v.is_unlocked}
-                for k, v in self.breeds.items() if k != AnimalType.EMPTY
+                animal_type.name: {
+                    "level": breed.level,
+                    "is_unlocked": breed.is_unlocked
+                }
+                for animal_type, breed in self.breeds.items()
+                if animal_type != AnimalType.EMPTY
             },
             "employees": {}
         }
+        
+        
+        if existing_employees:
+            game_state["employees"] = copy.deepcopy(existing_employees)
+        
+        
+        for emp_name, employee in self.employees.items():
+
+            employee_data = {
+                "name": employee.name,
+                "x": employee.x,
+                "y": employee.y,
+                "level": employee.level,
+                "enabled": employee.enabled,
+                "total_earnings": employee.total_earnings,
+                "total_sales": employee.total_sales
+            }
+            
+            # if the employee already exists in the save data
+            if emp_name in existing_employees:
+                existing_emp = existing_employees[emp_name]
+                
+                
+                if "buy_randomly" in existing_emp:
+                    employee_data["buy_randomly"] = existing_emp["buy_randomly"]
+                else:
+                    employee_data["buy_randomly"] = getattr(employee, "buy_randomly", True)
+                    
+                
+                if "can_buy_chicken" in existing_emp:
+                    employee_data["can_buy_chicken"] = existing_emp["can_buy_chicken"]
+                else:
+                    employee_data["can_buy_chicken"] = getattr(employee, "can_buy_chicken", False)
+                    
+                if "can_buy_pig" in existing_emp:
+                    employee_data["can_buy_pig"] = existing_emp["can_buy_pig"]
+                else:
+                    employee_data["can_buy_pig"] = getattr(employee, "can_buy_pig", False)
+                    
+                if "can_buy_cow" in existing_emp:
+                    employee_data["can_buy_cow"] = existing_emp["can_buy_cow"]
+                else:
+                    employee_data["can_buy_cow"] = getattr(employee, "can_buy_cow", False)
+
+                if "can_buy_horse" in existing_emp:
+                    employee_data["can_buy_horse"] = existing_emp["can_buy_horse"]
+                else:
+                    employee_data["can_buy_horse"] = getattr(employee, "can_buy_horse", False)
+            else:
+                # if the employee is new, set default values
+                employee_data["buy_randomly"] = getattr(employee, "buy_randomly", True)
+                employee_data["can_buy_chicken"] = getattr(employee, "can_buy_chicken", False)
+                employee_data["can_buy_pig"] = getattr(employee, "can_buy_pig", False)
+                employee_data["can_buy_cow"] = getattr(employee, "can_buy_cow", False)
+                employee_data["can_buy_horse"] = getattr(employee, "can_buy_horse", False)
+                
+        
+            game_state["employees"][emp_name] = employee_data
+
+        
         SaveManager.save_game(game_state)
 
+    def show_animal_selection_dialog(self):
+        menu = QMenu(self)
+        for animal_type in AnimalType:
+            if animal_type != AnimalType.EMPTY:
+                if self.breeds[animal_type].is_unlocked:
+                    action = menu.addAction(
+                        f"{animal_type.emoji} {animal_type.label} ({animal_type.price} coins)")
+                    action.setData(animal_type)
+                else:
+                    action = menu.addAction(
+                        f"{animal_type.emoji} {animal_type.label} (Locked)")
+                    action.setEnabled(False)
+
+        action = menu.exec(QCursor.pos())
+        return action.data() if action else None
 
 
 
+    def get_field_price(self):
+        """Calculate price for next field"""
+        return int(BASE_FIELD_PRICE * (FIELD_PRICE_MULTIPLIER ** (self.unlocked_fields - 1)))
 
+    def can_unlock_field(self):
+        """Check if more fields can be unlocked"""
+        return self.unlocked_fields < (GRID_SIZE * GRID_SIZE)
 
+    def try_unlock_field(self):
+        """Handle field unlock with double-click confirmation"""
+        import time
+        current_time = int(time.time() * 1000)  # Current time in milliseconds
+        
+        next_field_cost = self.calculate_next_field_cost()
+        
+        if self.money < next_field_cost:
+            self.show_purchase_message(f"Need {next_field_cost} coins to unlock new land!", success=False)
+            return
+        
+        # Check if this is a double-click
+        if current_time - self.last_unlock_click_time < self.double_click_threshold:
+            # Double-click detected - purchase land
+            self.money -= next_field_cost
+            self.unlocked_fields += 1
+            self.save_game()
+            self.show_purchase_message(f"New land purchased for {next_field_cost} coins!", success=True)
+            self.update()
+            self.last_unlock_click_time = 0  # Reset timer
+        else:
+            # First click - show instruction for double-click
+            self.show_purchase_instruction(next_field_cost)
+            self.last_unlock_click_time = current_time
 
-    def update_employees(self):
-        """更新员工自动操作"""
-        for employee in self.employees.values():
-            if not employee.enabled:
-                continue
-            
-            field = self.get_field_by_employee(employee)
-            if not field:
-                continue
-            
-            if not field.animal:
-                # 购买动物
-                animal_type = employee.choose_animal_to_buy()
-                if self.money >= animal_type.price:
-                    self.money -= animal_type.price
-                    field.add_animal(Animal(animal_type, breed_level=self.breeds[animal_type].level))
-            elif field.animal and employee.should_sell_animal(field.animal):
-                # 出售动物
-                price = field.animal.get_sale_price()
-                salary = int(price * employee.get_salary_rate())
-                self.money += (price - salary)
-                employee.total_earnings += price
-                employee.total_sales += 1
-                
-                animal_type = field.animal.animal_type
-                self.stats[animal_type]["sold"] += 1
-                self.global_stats.total_animals_sold += 1
-                self.global_stats.total_money_earned += price
-                
-                field.remove_animal()
-                self.save_game()
+    def calculate_next_field_cost(self):
+        """Calculate cost for next field"""
+        base_cost = 500
+        return base_cost + (self.unlocked_fields * 200)
 
-    def get_field_by_employee(self, employee):
-        if 0 <= employee.y < len(self.fields) and 0 <= employee.x < len(self.fields[employee.y]):
-            return self.fields[employee.y][employee.x]
-        return None
+    def show_purchase_instruction(self, cost):
+        """Show instruction message for land purchase"""
+        message = f"Double-click to purchase new land for {cost} coins"
+        self.show_purchase_message(message, success=None, duration=3000)
+
+    def show_purchase_message(self, message, success=True, duration=2500):
+        """Show purchase result or instruction message"""
+
+        
+        # Clear existing message safely
+        if hasattr(self, 'purchase_message_label') and self.purchase_message_label is not None:
+            try:
+                self.purchase_message_label.deleteLater()
+            except RuntimeError:
+                pass
+            self.purchase_message_label = None
+        
+        # Choose color based on message type
+        if success is None:  # Instruction message
+            color = "#3498db"  # Blue for instructions
+            border = "2px solid #2980b9"
+        elif success:  # Success message
+            color = "#27ae60"  # Green for success
+            border = "none"
+        else:  # Error message
+            color = "#e74c3c"  # Red for error
+            border = "2px solid #c0392b"
+        
+        self.purchase_message_label = QLabel(message, self)
+        self.purchase_message_label.setStyleSheet(f"""
+            QLabel {{
+                background-color: {color};
+                color: white;
+                font-weight: bold;
+                font-size: 14px;
+                padding: 12px;
+                border-radius: 6px;
+                border: {border};
+            }}
+        """)
+        self.purchase_message_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Adjust size based on message length
+        message_width = max(350, len(message) * 8)
+        self.purchase_message_label.resize(message_width, 45)
+        self.purchase_message_label.move(
+            (self.width() - message_width) // 2, 
+            60
+        )
+        self.purchase_message_label.show()
+        
+        # Auto-hide after 2.5 seconds
+        def clear_message():
+            if hasattr(self, 'purchase_message_label') and self.purchase_message_label is not None:
+                try:
+                    self.purchase_message_label.deleteLater()
+                except RuntimeError:
+                    pass
+                self.purchase_message_label = None
+        
+        QTimer.singleShot(duration, clear_message)
+    
+
+    def check_game_over(self):
+        if self.money < min(animal_type.price for animal_type in AnimalType
+                          if animal_type != AnimalType.EMPTY):
+            has_living_animals = any(
+                field.animal and not field.animal.is_dead
+                for row in self.fields
+                for field in row
+            )
+            if not has_living_animals:
+                self.show_game_over()
+
+    def show_game_over(self):
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Game Over")
+        msg.setText("You've run out of money and have no living animals!")
+        msg.setInformativeText(
+            f"Total animals sold: {self.global_stats.total_animals_sold}\n"
+            f"Total money earned: {self.global_stats.total_money_earned}\n"
+            f"Highest money achieved: {self.global_stats.highest_money}\n"
+            f"Days survived: {self.global_stats.current_day}\n"
+            f"Highest day reached: {self.global_stats.highest_day}\n"
+            "\nWould you like to reset the game?"
+        )
+        msg.setStandardButtons(QMessageBox.StandardButton.Yes |
+                               QMessageBox.StandardButton.No)
+
+        if msg.exec() == QMessageBox.StandardButton.Yes:
+            self.reset_game()
 
     def reset_game(self):
-        """重置游戏"""
-        reply = QMessageBox.question(self, 'Reset Game',
-                                     'Are you sure you want to reset? Global stats will be kept.',
-                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Reset Game")
+        msg.setText("global statics aren't reset")
+        msg.setInformativeText(
+            f"Total animals sold: {self.global_stats.total_animals_sold}\n"
+            f"Total money earned: {self.global_stats.total_money_earned}\n"
+            f"Highest money achieved: {self.global_stats.highest_money}\n"
+            f"Days survived: {self.global_stats.current_day}\n"
+            f"Highest day reached: {self.global_stats.highest_day}\n"
+            "\nWould you like to reset the game?"
+        )
+        msg.setStandardButtons(QMessageBox.StandardButton.Yes |
+                            QMessageBox.StandardButton.No)
+        if msg.exec() == QMessageBox.StandardButton.Yes:
+            self.save_global_stats()
+            
+            self.money = INITIAL_MONEY
+            self.previous_money = INITIAL_MONEY
+            self.unlocked_fields = 1
+            
+            # Reset statistics
+            self.stats = {
+                AnimalType.PIG: {"sold": 0, "dead": 0},
+                AnimalType.CHICKEN: {"sold": 0, "dead": 0},
+                AnimalType.COW: {"sold": 0, "dead": 0},
+                AnimalType.HORSE: {"sold": 0, "dead": 0}
+            }
+            
+            self.employees = {}
+            
+            # Reset breeds
+            self.breeds = {
+                AnimalType.PIG: AnimalBreed(AnimalType.PIG),
+                AnimalType.CHICKEN: AnimalBreed(AnimalType.CHICKEN),
+                AnimalType.COW: AnimalBreed(AnimalType.COW),
+                AnimalType.HORSE: AnimalBreed(AnimalType.HORSE)
+            }
+            self.breeds[AnimalType.CHICKEN].is_unlocked = True
+            self.breeds[AnimalType.PIG].is_unlocked = False
+            self.breeds[AnimalType.COW].is_unlocked = False
+            self.breeds[AnimalType.HORSE].is_unlocked = False
+            
+            for breed in self.breeds.values():
+                breed.level = 0
 
-        if reply == QMessageBox.StandardButton.Yes:
-            self.initialize_new_game()
+            # Reset fields
+            self.fields = []
+            for y in range(GRID_SIZE):
+                row = []
+                for x in range(GRID_SIZE):
+                    row.append(Field(x, y))
+                self.fields.append(row)
+            
+            
+            self.update()
+            
+            # 重要：既存のセーブファイルを完全に削除または上書き
+            # 新しい空のゲームデータで保存することで、古いデータが残らないようにする
+            game_state = {
+                "Version": VERSION,
+                "money": self.money,
+                "previous_money": self.previous_money,
+                "unlocked_fields": self.unlocked_fields,
+                "stats": {
+                    animal_type.name: stats
+                    for animal_type, stats in self.stats.items()
+                },
+                "fields": [
+                    [
+                        {
+                            "x": field.x,
+                            "y": field.y,
+                            "animal": None
+                        }
+                        for field in row
+                    ]
+                    for row in self.fields
+                ],
+                "breeds": {
+                    animal_type.name: {
+                        "level": breed.level,
+                        "is_unlocked": breed.is_unlocked
+                    }
+                    for animal_type, breed in self.breeds.items()
+                    if animal_type != AnimalType.EMPTY
+                },
+                "employees": {}  
+            }
+            
+            
+            SaveManager.save_game(game_state)
 
-    def handle_game_click(self, event):
-        """Handle clicks on the game area 处理游戏区域点击 """
-        # Get the click position (relative to the game_widget)
-        click_x = int(event.position().x())
-        click_y = int(event.position().y())
+    def paintEvent(self, event):
+        """Handle paint event"""
+        painter = QPainter(self)
+        cell_size = self.height() // 4
 
-        # Check if it is within the game grid 检查是否在游戏网格内
-        grid_width = self.cell_size * GRID_SIZE
-        grid_height = self.cell_size * GRID_SIZE
+        window_width = STATS_PANEL_WIDTH + (cell_size * GRID_SIZE)
+        window_height = cell_size * GRID_SIZE
+        self.resize(window_width, window_height)
 
-        if (click_x < self.game_offset_x or
-                click_x >= self.game_offset_x + grid_width or
-                click_y < self.game_offset_y or
-                click_y >= self.game_offset_y + grid_height):
-            return  # 点击在网格外
+        # Draw stats background
+        painter.drawPixmap(
+            0, 0, STATS_PANEL_WIDTH, self.height(),
+            self.resources['stats_bg']
+        )
 
-        # Calculate grid coordinates 计算格子坐标
-        relative_x = click_x - self.game_offset_x
-        relative_y = click_y - self.game_offset_y
-        grid_x = relative_x // self.cell_size
-        grid_y = relative_y // self.cell_size
+        # Add overlay
+        painter.fillRect(
+            0, 0, STATS_PANEL_WIDTH, self.height(),
+            QColor(255, 255, 255, 100)
+        )
 
-        # 边界检查
-        if not (0 <= grid_x < GRID_SIZE and 0 <= grid_y < GRID_SIZE):
-            return
 
-        field_number = grid_y * GRID_SIZE + grid_x + 1
+        # Draw statistics
+        self.paint_handler.draw_statistics(
+            painter,
+            self.stats,
+            self.money,
+            self.global_stats.current_day
+        )
 
-        # 处理点击逻辑
-        if field_number > self.unlocked_fields:
-            self.try_unlock_field()
-            return
+        for y in range(GRID_SIZE):
+            for x in range(GRID_SIZE):
+                field = self.fields[y][x]
+                field_number = y * GRID_SIZE + x + 1
+                pos_x = STATS_PANEL_WIDTH + (x * cell_size)
+                pos_y = y * cell_size
 
-        field = self.fields[grid_y][grid_x]
-
-        if event.button() == Qt.MouseButton.LeftButton:
-            if field.animal is None:
-                self.buy_animal(grid_x, grid_y)
-            else:
-                # Left-click on an existing animal to sell it (if it is sellable)
-                if field.animal.can_sell():
-                    self.sell_animal_directly(field)
+                # Draw field background
+                if field_number <= self.unlocked_fields:
+                    painter.drawPixmap(
+                        pos_x, pos_y, cell_size, cell_size,
+                        self.resources['tile']
+                    )
+                    # Draw field contents (animal, growth, etc.)
+                    self.paint_handler.draw_field(
+                        painter, field, self.resources, pos_x, pos_y, cell_size
+                    )
                 else:
-                    self.show_cannot_sell_message(field.animal)
+                    # Draw locked field
+                    painter.drawPixmap(
+                        pos_x, pos_y, cell_size, cell_size,
+                        self.resources['locked_tile']
+                    )
+                    # Draw lock icon
+                    font = painter.font()
+                    font.setPointSize(24)
+                    painter.setFont(font)
+                    painter.drawText(
+                        pos_x + cell_size // 2 - 20,
+                        pos_y + cell_size // 2 + 10,
+                        "🔒"
+                    )
 
-        elif event.button() == Qt.MouseButton.RightButton:
-            if field.animal:
-                self.sell_animal_directly(field)
+                if chr(64 + field_number) in self.employees:
+                    employee = self.employees[chr(64 + field_number)]
+                    if employee.enabled:
+                        icon_size = 20
+                        painter.drawPixmap(
+                            pos_x + cell_size - icon_size - 5,
+                            pos_y + 5,
+                            icon_size,
+                            icon_size,
+                            self.resources['employee_icon']
+                        )
+            self.shop_button.setGeometry(10, self.height() - 200, 100, 30)  # ShopButton
+            self.employee_button.setGeometry(130, self.height() - 200, 100, 30) # employeeButton
+            self.stats_button.setGeometry(10, self.height() - 80, 100, 30)  # StatisticsButton
+            self.reset_button.setGeometry(10, self.height() - 40, 100, 30)  # ResetButton
+            self.instruction_button.setGeometry(130, self.height() - 40, 100, 30)
+            self.rate_button.setGeometry(130, self.height() - 80, 100, 30)
+            self.leader_board_button.setGeometry(10, self.height() - 120, 100, 30)
+            self.github_button.setGeometry(130, self.height() - 120, 100, 30) 
+            self.buy_coffee_button.setGeometry(10, self.height() - 240, 220, 30)
 
-        self.update()
-        self.update_stat_labels()
 
-    # 其他方法（sell_animal_directly, show_shop 等）保持不变...
+
+
+
+    def mousePressEvent(self, event):
+        """Handle mouse press events"""
+        cell_size = self.height() // 4
+        adjusted_x = event.position().x() - STATS_PANEL_WIDTH
+        x = int(adjusted_x // cell_size)
+        y = int(event.position().y() // cell_size)
+
+        if 0 <= x < GRID_SIZE and 0 <= y < GRID_SIZE:
+            field_number = y * GRID_SIZE + x + 1
+
+            if field_number > self.unlocked_fields:
+                self.try_unlock_field()
+                return
+
+            field = self.fields[y][x]
+            if event.button() == Qt.MouseButton.LeftButton:
+                if field.animal is None:
+                    selected_type = self.show_animal_selection_dialog()
+                    if selected_type:
+                        purchase_price = selected_type.price
+                        if self.money >= purchase_price:
+                            breed_level = self.breeds[selected_type].level
+                            field.add_animal(Animal(selected_type, breed_level=breed_level))
+                            self.money -= purchase_price
+                            self.update()
+                            self.save_game()
+                        else:
+                            QMessageBox.warning(
+                                self,
+                                "Cannot Buy",
+                                f"Not enough money!\nRequired: {purchase_price} coins"
+                            )
+            elif event.button() == Qt.MouseButton.RightButton:
+                if field.animal:
+                    self.sell_animal_directly(field)
+            
+            self.update()
+
     def sell_animal_directly(self, field):
-        """直接出售动物"""
-        if not field.animal or not field.animal.can_sell():
+        """Sell animal immediately (without modal)"""
+        if not field.animal:
             return
-
+        
+        # Get sale price using existing Animal class methods
         animal = field.animal
-        price = animal.get_sale_price()
-        animal_type = animal.animal_type
-
-        # 更新统计
-        self.stats[animal_type]["sold"] += 1
-        self.global_stats.total_animals_sold += 1
-        self.global_stats.total_money_earned += price
-        self.global_stats.total_animals_sold_by_type[animal_type.name] += 1
-
-        # 移除动物，增加金钱
+        
+        # Check if animal can be sold (using existing can_sell() method)
+        if not animal.can_sell():
+            # Show message explaining why animal cannot be sold
+            self.show_cannot_sell_message(animal)
+            return
+        
+        # Use existing get_sale_price() method
+        sell_price = animal.get_sale_price()
+        
+        # Get animal name (for display)
+        animal_name = animal.animal_type.label
+        
+        # Remove animal and add money
         field.remove_animal()
-        self.money += price
+        self.money += sell_price
+        
+        # Save game
+        self.save_game()
+        
+        # Show sale message at top of screen (optional)
+        self.show_sale_message(animal_name, sell_price)
 
+        self.stats[animal.animal_type]["sold"] += 1
+        self.global_stats.total_animals_sold += 1
+        self.global_stats.total_money_earned += sell_price
+        self.global_stats.total_animals_sold_by_type[animal_name.upper()] += 1
+
+        field.remove_animal()
         self.save_game()
         self.save_global_stats()
-        self.update_stat_labels()
-
-        # 显示出售提示
-        self.update_money_display(price, f"sold {animal_type.label}")
-
-        # 显示提示
-        self.show_sale_message(animal_type.label, price)
-
-    def show_sale_message(self, animal_name, price):
-        """显示出售提示"""
-        msg = QLabel(f"Sold {animal_name} for {price} coins!", self.game_widget)
-        msg.setStyleSheet("""
-            QLabel {
-                background-color: #27ae60;
-                color: white;
-                padding: 8px;
-                border-radius: 4px;
-                font-weight: bold;
-            }
-        """)
-        msg.adjustSize()
-
-        x = (self.game_widget.width() - msg.width()) // 2
-        y = 10
-        msg.move(x, y)
-        msg.show()
-        msg.raise_()
-        QTimer.singleShot(2000, msg.deleteLater)
+        
 
     def show_cannot_sell_message(self, animal):
-        """显示不能出售提示"""
-        msg = QLabel(f"Need 50% growth! Now: {int(animal.growth)}%", self.game_widget)
-        msg.setStyleSheet("""
+        """Display message when animal cannot be sold"""
+        from PyQt6.QtCore import QTimer
+        from PyQt6.QtWidgets import QLabel
+        from PyQt6.QtCore import Qt
+        
+        # Safely delete existing message label if it exists
+        if hasattr(self, 'sale_message_label') and self.sale_message_label is not None:
+            try:
+                self.sale_message_label.deleteLater()
+            except RuntimeError:
+                pass  # Object already deleted
+            self.sale_message_label = None
+        
+        # Determine the reason why animal cannot be sold
+        animal_name = animal.animal_type.label
+        if animal.is_dead:
+            message = f"{animal_name} is dead and cannot be sold!"
+        elif animal.growth < 50:
+            message = f"{animal_name} needs more growth (current: {animal.growth}/50)!"
+        else:
+            message = f"{animal_name} cannot be sold right now!"
+        
+        # Create new message label with warning style
+        self.sale_message_label = QLabel(message, self)
+        self.sale_message_label.setStyleSheet("""
             QLabel {
                 background-color: #e74c3c;
                 color: white;
-                padding: 8px;
-                border-radius: 4px;
                 font-weight: bold;
+                font-size: 14px;
+                padding: 10px;
+                border-radius: 5px;
+                border: 2px solid #c0392b;
             }
         """)
-        msg.adjustSize()  # 自动调整大小
+        self.sale_message_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Position message at center top of screen
+        self.sale_message_label.resize(350, 40)
+        self.sale_message_label.move(
+            (self.width() - 350) // 2,
+            50
+        )
+        self.sale_message_label.show()
+        
+        # Add the missing timer to auto-hide the message
+        def clear_message():
+            if hasattr(self, 'sale_message_label') and self.sale_message_label is not None:
+                try:
+                    self.sale_message_label.deleteLater()
+                except RuntimeError:
+                    pass  # Object already deleted
+                self.sale_message_label = None
+        
+        QTimer.singleShot(2500, clear_message)  # Auto-hide after 2.5 seconds
 
-        # 显示在游戏区域顶部中央
-        x = (self.game_widget.width() - msg.width()) // 2
-        y = 10
-        msg.move(x, y)
-        msg.show()
-        msg.raise_()  # 确保在最上层
-        QTimer.singleShot(2000, msg.deleteLater)
+
+    def show_sale_message(self, animal_name, price):
+        """Display sale message temporarily"""
+        # PyQt imports required (add to top of file)
+        from PyQt6.QtCore import QTimer
+        from PyQt6.QtWidgets import QLabel
+        from PyQt6.QtCore import Qt
+        
+        # Safely delete existing message label if it exists
+        if hasattr(self, 'sale_message_label') and self.sale_message_label is not None:
+            try:
+                self.sale_message_label.deleteLater()
+            except RuntimeError:
+                pass  # Object already deleted
+            self.sale_message_label = None
+        
+        # Create new message label
+        self.sale_message_label = QLabel(f"{animal_name} sold for {price} coins!", self)
+        self.sale_message_label.setStyleSheet("""
+            QLabel {
+                background-color: #cb6838;
+                color: white;
+                font-weight: bold;
+                font-size: 14px;
+                padding: 10px;
+                border-radius: 5px;
+            }
+        """)
+        self.sale_message_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Position message at center top of screen
+        self.sale_message_label.resize(300, 40)
+        self.sale_message_label.move(
+            (self.width() - 300) // 2,
+            50
+        )
+        self.sale_message_label.show()
+        
+        # Remove message after 2 seconds and clear reference
+        def clear_message():
+            if hasattr(self, 'sale_message_label') and self.sale_message_label is not None:
+                try:
+                    self.sale_message_label.deleteLater()
+                except RuntimeError:
+                    pass  # Object already deleted
+                self.sale_message_label = None
+        
+        QTimer.singleShot(2000, clear_message)
 
     def called(self, reviewer, card, ease):
-        """Anki 卡片回答回调"""
-        # 记录之前金钱
-        old_money = self.money
-
-        # 猪的特殊效果
-        pig_boosts = []
+        """Handle Anki card review events"""
+        pig_products = []
         for row in self.fields:
             for field in row:
-                if (field.animal and field.animal.animal_type == AnimalType.PIG
-                        and field.animal.has_product):
-                    # 随机加速其他动物
-                    for target_row in self.fields:
-                        for target in target_row:
-                            if target.animal and target != field and not target.animal.is_dead:
-                                if random.random() < 0.3:
-                                    boost = random.randint(3, 7)
-                                    target.animal.growth_boost = boost
-                                    pig_boosts.append((target, boost))
+                if (field.animal and
+                        field.animal.animal_type == AnimalType.PIG and
+                        field.animal.has_product):
+                    pig_products.append(field)
 
-        # 所有动物成长
+        boosted_animals = []
+        for pig_field in pig_products:
+            available_animals = []
+            for row in self.fields:
+                for field in row:
+                    if (field.animal and
+                            not field.animal.is_dead and
+                            field != pig_field):
+                        available_animals.append(field)
+
+            if available_animals:
+                target_field = random.choice(available_animals)
+                boost_amount = random.randint(3, 7)
+                target_field.animal.growth_boost = boost_amount
+                boosted_animals.append((target_field, boost_amount))
+
         total_production = 0
-        production_sources = []  # 记录产物来源
-
         for row in self.fields:
             for field in row:
                 if field.animal:
                     if field.animal.growth >= field.animal.max_growth and not field.animal.is_dead:
-                        field.animal.is_dead = True
-                        self.stats[field.animal.animal_type]["dead"] += 1
                         self.global_stats.total_animals_died_by_type[field.animal.animal_type.name] += 1
-                    else:
-                        field.animal.grow()
-                        production = field.animal.produce()
-                        if production > 0:
-                            total_production += production
-                            self.global_stats.total_animals_production_by_type[field.animal.animal_type.name] += 1
 
-                            # 记录产物类型
-                            animal_name = field.animal.animal_type.label
-                            production_sources.append((animal_name, production))
+                    field.animal.grow()
+                    print(f"Animal growth: {field.animal.growth}%")
 
-                    # 死亡动物随机移除
-                    if field.animal.is_dead:
-                        remove_probability = random.randint(0, 15)
+
+                    field.animal.has_product = False
+                    production = field.animal.produce()
+                    if production > 0:
+                        total_production += production
+                        self.global_stats.total_animals_production_by_type[field.animal.animal_type.name] += 1
+
+                    elif field.animal.is_dead:
+                        remove_probability = random.randint(0,15)
                         if remove_probability == 0:
+                            # Write to _anki_farm_tycoon_save.json. # Issue 19
                             self.stats[field.animal.animal_type]["dead"] += 1
-                            self.global_stats.total_animals_died_by_type[field.animal.animal_type.name] = \
-                            self.stats[field.animal.animal_type]["dead"]
+                            # Copy to anki_farm_tycoon_global_stats.json.
+                            self.global_stats.total_animals_died_by_type[field.animal.animal_type.name] = self.stats[field.animal.animal_type]["dead"]
                             field.remove_animal()
 
-        # 产物收益
+
         if total_production > 0:
             self.money += total_production
             self.global_stats.total_money_earned += total_production
 
-            # 显示产物提示（合并显示）
-            if len(production_sources) <= 2:
-                source_text = ", ".join([f"{name}+{val}" for name, val in production_sources])
-            else:
-                source_text = f"{len(production_sources)} items"
-            self.update_money_display(total_production, source_text)
+        bonus_earning = random.randint(0,2)
 
-        # 随机奖励
-        bonus = random.randint(0, 2)
-        if bonus > 0:
-            self.money += bonus
-            self.global_stats.total_money_earned += bonus
-            # 延迟显示，避免覆盖产物提示
-            QTimer.singleShot(50, lambda b=bonus: self.update_money_display(b, "bonus"))
+        self.money += bonus_earning
+        self.global_stats.total_money_earned += bonus_earning
 
         self.global_stats.update_money_record(self.money)
         self.global_stats.update_day_count()
 
+        self.check_game_over()
         self.update_employees()
+
+        self.update()
         self.save_game()
         self.save_global_stats()
-        self.update()
-        self.update_stat_labels()
-
-        # 如果没有产物和奖励，显示学习完成
-        if total_production == 0 and bonus == 0:
-            self.update_money_display(0, "study")
 
     def save_global_stats(self):
         try:
             profile_dir = Path(mw.pm.profileFolder())
             save_path = profile_dir / "collection.media/_anki_farm_tycoon_global_stats.json"
+            
             with open(save_path, 'w') as f:
                 json.dump(self.global_stats.to_dict(), f)
         except Exception as e:
@@ -835,7 +1166,8 @@ class GameWidget(QWidget):
 
             if save_path.exists():
                 with open(save_path, 'r') as f:
-                    self.global_stats = GlobalStats.from_dict(json.load(f))
+                    data = json.load(f)
+                    self.global_stats = GlobalStats.from_dict(data)
             else:
                 self.global_stats = GlobalStats()
         except Exception as e:
