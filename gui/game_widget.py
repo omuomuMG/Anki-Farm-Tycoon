@@ -559,6 +559,47 @@ class GameWidget(QWidget):
             "employees": {}
         }
         SaveManager.save_game(game_state)
+  
+    def hire_employee(self, x: int, y: int) -> bool:
+        for emp in self.employees.values():
+            if emp.x == x and emp.y == y:
+                return False
+        field_number = y * GRID_SIZE + x
+        name = chr(65 + field_number)
+        employee = Employee(name=name, x=x, y=y)
+
+        # Set default animal buying preferences (default to chicken only)
+        employee.buy_randomly = True
+        employee.can_buy_chicken = False
+        employee.can_buy_pig = False
+        employee.can_buy_cow = False
+        employee.can_buy_horse = False
+
+        # Add to employees dictionary
+        self.employees[name] = employee
+
+        # Save employee preferences to ensure they're stored in JSON
+        employee.save_preferences()
+
+        self.update()
+        return True
+
+    def upgrade_employee(self, employee: Employee):
+        """level up employee"""
+        if employee.level >= employee.max_level:
+            return False
+
+        cost = employee.get_upgrade_cost()
+        if self.money >= cost:
+            self.money -= cost
+            employee.level += 1
+            self.save_game()
+            return True
+        return False
+
+    def toggle_employee(self, employee: Employee):
+        employee.enabled = not employee.enabled
+        self.save_game()
 
 
     def update_employees(self):
