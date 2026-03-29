@@ -1,7 +1,5 @@
-from PyQt6.QtWidgets import QDialog
-
-
-class BaseWindow(QDialog):
+from PyQt6.QtWidgets import QWidget
+class BaseWindow(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.parent = parent
