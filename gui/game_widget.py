@@ -3,17 +3,17 @@ import json
 import random
 import copy
 
-from PyQt6.QtWidgets import QMenu, QMessageBox, QPushButton, QLabel
-from PyQt6.QtCore import Qt, QUrl, QTimer
+from PyQt6.QtWidgets import QMenu, QMessageBox, QPushButton, QLabel, QSizePolicy
+from PyQt6.QtCore import Qt, QUrl, QTimer, QSize
 from PyQt6.QtGui import QPainter, QColor, QCursor, QFont, QDesktopServices
 from aqt import gui_hooks, mw
 
-from .base_window import BaseWindow
 from .employee_management_window import EmployeeManagementWindow
 from ..models.employee import Employee
 from .animal_breed import AnimalBreed
 from .shop_window import ShopWindow
 from .statistics_window import StatisticsWindow
+from .settings_window import SettingsWindow
 from ..models.global_status import GlobalStats
 from ..models.animal import Animal
 from ..models.animal_type import AnimalType
@@ -29,6 +29,11 @@ from ..constants import (
 from pathlib import Path
 
 from .base_Qwidget import BaseWidget
+
+
+MIN_CELL_SIZE = 60
+
+
 class GameWidget(BaseWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -38,6 +43,17 @@ class GameWidget(BaseWidget):
         window_height = INITIAL_CELL_SIZE * GRID_SIZE
         self.setGeometry(100, 100, window_width, window_height)
         self.setWindowTitle("Anki Farm Tycoon")
+        size_policy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        size_policy.setHeightForWidth(True)
+        self.setSizePolicy(size_policy)
+        self.setMinimumSize(self.minimumSizeHint())
+        self._adjusting_floating_size = False
+        self._floating_resize_basis = "width"
+        self._floating_resize_timer = QTimer(self)
+        self._floating_resize_timer.setSingleShot(True)
+        self._floating_resize_timer.timeout.connect(
+            self._resize_floating_container_after_user_resize
+        )
 
 
         self.breeds = {
@@ -56,7 +72,10 @@ class GameWidget(BaseWidget):
         # Initialize paint handler
         self.paint_handler = PaintHandler()
 
-        gui_hooks.reviewer_did_answer_card.append(self.called)
+        self._reviewer_hook = self.called
+        self._reviewer_hook_registered = True
+        gui_hooks.reviewer_did_answer_card.append(self._reviewer_hook)
+        self.destroyed.connect(lambda: self.unregister_reviewer_hook())
 
         self.global_stats = GlobalStats()
         self.load_global_stats()
@@ -68,6 +87,142 @@ class GameWidget(BaseWidget):
 
         
 
+    def unregister_reviewer_hook(self):
+        if not getattr(self, "_reviewer_hook_registered", False):
+            return
+
+        try:
+            gui_hooks.reviewer_did_answer_card.remove(self._reviewer_hook)
+        except ValueError:
+            pass
+        self._reviewer_hook_registered = False
+
+    def closeEvent(self, event):
+        self.unregister_reviewer_hook()
+        super().closeEvent(event)
+
+
+    def sizeHint(self):
+        return QSize(
+            STATS_PANEL_WIDTH + (INITIAL_CELL_SIZE * GRID_SIZE),
+            INITIAL_CELL_SIZE * GRID_SIZE
+        )
+
+    def minimumSizeHint(self):
+        return QSize(
+            STATS_PANEL_WIDTH + (MIN_CELL_SIZE * GRID_SIZE),
+            MIN_CELL_SIZE * GRID_SIZE
+        )
+
+    def hasHeightForWidth(self):
+        return True
+
+    def heightForWidth(self, width):
+        board_width = max(MIN_CELL_SIZE * GRID_SIZE, width - STATS_PANEL_WIDTH)
+        return board_width
+
+    def widthForHeight(self, height):
+        board_height = max(MIN_CELL_SIZE * GRID_SIZE, height)
+        return STATS_PANEL_WIDTH + board_height
+
+    def _floating_container(self):
+        parent = self.parentWidget()
+        if parent is not None and hasattr(parent, "isFloating") and parent.isFloating():
+            return parent
+        return None
+
+    def _resize_floating_container_to_widget_size(self, target_size):
+        container = self._floating_container()
+        if container is None or self._adjusting_floating_size:
+            return
+
+        width_delta = target_size.width() - self.width()
+        height_delta = target_size.height() - self.height()
+        if abs(width_delta) <= 1 and abs(height_delta) <= 1:
+            return
+
+        self._adjusting_floating_size = True
+        self._floating_resize_timer.stop()
+        try:
+            container.resize(
+                max(container.minimumWidth(), container.width() + width_delta),
+                max(container.minimumHeight(), container.height() + height_delta)
+            )
+        finally:
+            self._adjusting_floating_size = False
+
+        self.update()
+
+    def resize_floating_container_to_game_size(self):
+        self._resize_floating_container_to_widget_size(self.sizeHint())
+
+    def _resize_floating_container_after_user_resize(self):
+        if self._floating_container() is None:
+            return
+
+        if self._floating_resize_basis == "height":
+            target_size = QSize(self.widthForHeight(self.height()), self.height())
+        else:
+            target_size = QSize(self.width(), self.heightForWidth(self.width()))
+
+        self._resize_floating_container_to_widget_size(target_size)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self._floating_container() is None or self._adjusting_floating_size:
+            return
+
+        old_size = event.oldSize()
+        if old_size.isValid():
+            width_delta = abs(event.size().width() - old_size.width())
+            height_delta = abs(event.size().height() - old_size.height())
+        else:
+            width_delta = 0
+            height_delta = 0
+
+        self._floating_resize_basis = "height" if height_delta > width_delta else "width"
+        self._floating_resize_timer.start(150)
+
+    def _layout_metrics(self):
+        available_board_width = max(0, self.width() - STATS_PANEL_WIDTH)
+        available_board_height = max(0, self.height())
+        cell_size = max(
+            MIN_CELL_SIZE,
+            min(available_board_width // GRID_SIZE, available_board_height // GRID_SIZE)
+        )
+        board_size = cell_size * GRID_SIZE
+        content_width = STATS_PANEL_WIDTH + board_size
+        if self._floating_container() is None:
+            content_x = max(0, (self.width() - content_width) // 2)
+            content_y = max(0, (self.height() - board_size) // 2)
+        else:
+            content_x = 0
+            content_y = 0
+
+        return {
+            "cell_size": cell_size,
+            "board_size": board_size,
+            "content_width": content_width,
+            "panel_x": content_x,
+            "panel_y": content_y,
+            "board_x": content_x + STATS_PANEL_WIDTH,
+            "board_y": content_y,
+        }
+
+    def _position_buttons(self, metrics):
+        panel_x = metrics["panel_x"]
+        panel_y = metrics["panel_y"]
+        panel_bottom = panel_y + metrics["board_size"]
+
+        self.shop_button.setGeometry(panel_x + 10, panel_bottom - 200, 100, 30)
+        self.employee_button.setGeometry(panel_x + 130, panel_bottom - 200, 100, 30)
+        self.stats_button.setGeometry(panel_x + 10, panel_bottom - 80, 100, 30)
+        self.settings_button.setGeometry(panel_x + 10, panel_bottom - 40, 100, 30)
+        self.instruction_button.setGeometry(panel_x + 130, panel_bottom - 40, 100, 30)
+        self.rate_button.setGeometry(panel_x + 130, panel_bottom - 80, 100, 30)
+        self.leader_board_button.setGeometry(panel_x + 10, panel_bottom - 120, 100, 30)
+        self.github_button.setGeometry(panel_x + 130, panel_bottom - 120, 100, 30)
+        self.buy_coffee_button.setGeometry(panel_x + 10, panel_bottom - 240, 220, 30)
 
     def setup_buttons(self):
 
@@ -161,10 +316,10 @@ class GameWidget(BaseWidget):
             }
         """)
 
-        # Reset button
-        self.reset_button = QPushButton("🔄Reset Game", self)
-        self.register_button(self.reset_button, self.reset_game)
-        self.reset_button.setStyleSheet("""
+        # Settings button
+        self.settings_button = QPushButton("⚙️Settings", self)
+        self.register_button(self.settings_button, self.show_settings)
+        self.settings_button.setStyleSheet("""
             QPushButton {
                 background-color: #A0522D;
                 color: white;
@@ -327,6 +482,14 @@ class GameWidget(BaseWidget):
         """Show statistics window"""
         stats_window = StatisticsWindow(self.global_stats, self)
         stats_window.exec()
+
+    def show_settings(self):
+        """Show settings window"""
+        settings_window = SettingsWindow(self, self)
+        if settings_window.exec() and settings_window.settings_changed:
+            apply_settings = getattr(mw, "anki_farm_apply_window_settings", None)
+            if apply_settings:
+                QTimer.singleShot(0, apply_settings)
 
     def load_game(self):
         """Load or initialize game state"""
@@ -806,39 +969,46 @@ class GameWidget(BaseWidget):
     def paintEvent(self, event):
         """Handle paint event"""
         painter = QPainter(self)
-        cell_size = self.height() // 4
+        metrics = self._layout_metrics()
+        cell_size = metrics["cell_size"]
+        panel_x = metrics["panel_x"]
+        panel_y = metrics["panel_y"]
+        board_x = metrics["board_x"]
+        board_y = metrics["board_y"]
+        board_size = metrics["board_size"]
 
-        window_width = STATS_PANEL_WIDTH + (cell_size * GRID_SIZE)
-        window_height = cell_size * GRID_SIZE
-        self.resize(window_width, window_height)
+        painter.fillRect(self.rect(), self.palette().window())
 
         # Draw stats background
         painter.drawPixmap(
-            0, 0, STATS_PANEL_WIDTH, self.height(),
+            panel_x, panel_y, STATS_PANEL_WIDTH, board_size,
             self.resources['stats_bg']
         )
 
         # Add overlay
         painter.fillRect(
-            0, 0, STATS_PANEL_WIDTH, self.height(),
+            panel_x, panel_y, STATS_PANEL_WIDTH, board_size,
             QColor(255, 255, 255, 100)
         )
 
 
         # Draw statistics
+        painter.save()
+        painter.translate(panel_x, panel_y)
         self.paint_handler.draw_statistics(
             painter,
             self.stats,
             self.money,
             self.global_stats.current_day
         )
+        painter.restore()
 
         for y in range(GRID_SIZE):
             for x in range(GRID_SIZE):
                 field = self.fields[y][x]
                 field_number = y * GRID_SIZE + x + 1
-                pos_x = STATS_PANEL_WIDTH + (x * cell_size)
-                pos_y = y * cell_size
+                pos_x = board_x + (x * cell_size)
+                pos_y = board_y + (y * cell_size)
 
                 # Draw field background
                 if field_number <= self.unlocked_fields:
@@ -858,7 +1028,7 @@ class GameWidget(BaseWidget):
                     )
                     # Draw lock icon
                     font = painter.font()
-                    font.setPointSize(24)
+                    font.setPointSize(max(8, min(24, cell_size // 3)))
                     painter.setFont(font)
                     painter.drawText(
                         pos_x + cell_size // 2 - 20,
@@ -877,15 +1047,7 @@ class GameWidget(BaseWidget):
                             icon_size,
                             self.resources['employee_icon']
                         )
-            self.shop_button.setGeometry(10, self.height() - 200, 100, 30)  # ShopButton
-            self.employee_button.setGeometry(130, self.height() - 200, 100, 30) # employeeButton
-            self.stats_button.setGeometry(10, self.height() - 80, 100, 30)  # StatisticsButton
-            self.reset_button.setGeometry(10, self.height() - 40, 100, 30)  # ResetButton
-            self.instruction_button.setGeometry(130, self.height() - 40, 100, 30)
-            self.rate_button.setGeometry(130, self.height() - 80, 100, 30)
-            self.leader_board_button.setGeometry(10, self.height() - 120, 100, 30)
-            self.github_button.setGeometry(130, self.height() - 120, 100, 30) 
-            self.buy_coffee_button.setGeometry(10, self.height() - 240, 220, 30)
+        self._position_buttons(metrics)
 
 
 
@@ -893,10 +1055,16 @@ class GameWidget(BaseWidget):
 
     def mousePressEvent(self, event):
         """Handle mouse press events"""
-        cell_size = self.height() // 4
-        adjusted_x = event.position().x() - STATS_PANEL_WIDTH
+        metrics = self._layout_metrics()
+        cell_size = metrics["cell_size"]
+        adjusted_x = event.position().x() - metrics["board_x"]
+        adjusted_y = event.position().y() - metrics["board_y"]
+
+        if adjusted_x < 0 or adjusted_y < 0:
+            return
+
         x = int(adjusted_x // cell_size)
-        y = int(event.position().y() // cell_size)
+        y = int(adjusted_y // cell_size)
 
         if 0 <= x < GRID_SIZE and 0 <= y < GRID_SIZE:
             field_number = y * GRID_SIZE + x + 1
