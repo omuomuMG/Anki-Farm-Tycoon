@@ -4,8 +4,35 @@ from .gui.sync_hook import on_sync_complete
 from .gui.game_widget import GameWidget
 
 
+def resize_floating_game_dock(dock):
+    """Resize a floating dock to the game's natural window size."""
+    if not dock.isFloating():
+        return
+
+    game_widget = dock.widget()
+    if game_widget is None:
+        return
+
+    game_widget.updateGeometry()
+    game_widget.resize_floating_container_to_game_size()
+    game_widget.update()
+
+
+def schedule_floating_game_dock_resize(dock):
+    """Wait for Qt to finish undocking before resizing the floating window."""
+    QTimer.singleShot(0, lambda: resize_floating_game_dock(dock))
+    QTimer.singleShot(100, lambda: resize_floating_game_dock(dock))
+
+
 def create_game_dock_widget():
     """Create game widget as a dock widget attached to Anki main window"""
+    if hasattr(mw, 'anki_farm_dock'):
+        dock = mw.anki_farm_dock
+        dock.setVisible(True)
+        if dock.isFloating():
+            schedule_floating_game_dock_resize(dock)
+        return dock
+
     # Create the game widget
     game_widget = GameWidget()
 
@@ -15,6 +42,10 @@ def create_game_dock_widget():
     # Create dock widget
     dock = QDockWidget("Anki Farm Tycoon", mw)
     dock.setWidget(game_widget)
+    dock.topLevelChanged.connect(
+        lambda floating: schedule_floating_game_dock_resize(dock) if floating else None
+    )
+    dock.visibilityChanged.connect(action.setChecked)
     dock.setAllowedAreas(
         Qt.DockWidgetArea.LeftDockWidgetArea |
         Qt.DockWidgetArea.RightDockWidgetArea |
