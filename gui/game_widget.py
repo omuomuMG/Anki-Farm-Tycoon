@@ -48,7 +48,6 @@ class GameWidget(BaseWidget):
         self.setSizePolicy(size_policy)
         self.setMinimumSize(self.minimumSizeHint())
         self._adjusting_floating_size = False
-        self._floating_resize_basis = "width"
         self._floating_resize_timer = QTimer(self)
         self._floating_resize_timer.setSingleShot(True)
         self._floating_resize_timer.timeout.connect(
@@ -131,15 +130,56 @@ class GameWidget(BaseWidget):
             return parent
         return None
 
+    def _uses_window_resize_policy(self):
+        return self.isWindow() or self._floating_container() is not None
+
+    def _window_size_for_height(self, height):
+        cell_size = max(MIN_CELL_SIZE, height // GRID_SIZE)
+        board_size = cell_size * GRID_SIZE
+        return QSize(STATS_PANEL_WIDTH + board_size, board_size)
+
+    def _size_differs_from_widget(self, target_size):
+        return (
+            abs(target_size.width() - self.width()) > 1
+            or abs(target_size.height() - self.height()) > 1
+        )
+
+    def _resize_window_to_widget_size(self, target_size):
+        if self._adjusting_floating_size or not self._size_differs_from_widget(target_size):
+            return False
+
+        self._adjusting_floating_size = True
+        self._floating_resize_timer.stop()
+        try:
+            self.resize(target_size)
+        finally:
+            self._adjusting_floating_size = False
+
+        self.update()
+        return True
+
+    def _sync_window_resize_policy(self):
+        if not self._uses_window_resize_policy():
+            return False
+
+        target_size = self._window_size_for_height(self.height())
+        if not self._size_differs_from_widget(target_size):
+            return False
+
+        if self.isWindow():
+            return self._resize_window_to_widget_size(target_size)
+
+        return self._resize_floating_container_to_widget_size(target_size)
+
     def _resize_floating_container_to_widget_size(self, target_size):
         container = self._floating_container()
         if container is None or self._adjusting_floating_size:
-            return
+            return False
 
         width_delta = target_size.width() - self.width()
         height_delta = target_size.height() - self.height()
         if abs(width_delta) <= 1 and abs(height_delta) <= 1:
-            return
+            return False
 
         self._adjusting_floating_size = True
         self._floating_resize_timer.stop()
@@ -152,6 +192,7 @@ class GameWidget(BaseWidget):
             self._adjusting_floating_size = False
 
         self.update()
+        return True
 
     def resize_floating_container_to_game_size(self):
         self._resize_floating_container_to_widget_size(self.sizeHint())
@@ -160,30 +201,38 @@ class GameWidget(BaseWidget):
         if self._floating_container() is None:
             return
 
-        if self._floating_resize_basis == "height":
-            target_size = QSize(self.widthForHeight(self.height()), self.height())
-        else:
-            target_size = QSize(self.width(), self.heightForWidth(self.width()))
-
-        self._resize_floating_container_to_widget_size(target_size)
+        self._resize_floating_container_to_widget_size(
+            self._window_size_for_height(self.height())
+        )
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
+        if self.isWindow():
+            if not self._adjusting_floating_size:
+                self._resize_window_to_widget_size(
+                    self._window_size_for_height(event.size().height())
+                )
+            return
+
         if self._floating_container() is None or self._adjusting_floating_size:
             return
 
-        old_size = event.oldSize()
-        if old_size.isValid():
-            width_delta = abs(event.size().width() - old_size.width())
-            height_delta = abs(event.size().height() - old_size.height())
-        else:
-            width_delta = 0
-            height_delta = 0
-
-        self._floating_resize_basis = "height" if height_delta > width_delta else "width"
         self._floating_resize_timer.start(150)
 
     def _layout_metrics(self):
+        if self._uses_window_resize_policy():
+            cell_size = max(MIN_CELL_SIZE, self.height() // GRID_SIZE)
+            board_size = cell_size * GRID_SIZE
+            return {
+                "cell_size": cell_size,
+                "board_size": board_size,
+                "content_width": STATS_PANEL_WIDTH + board_size,
+                "panel_x": 0,
+                "panel_y": 0,
+                "board_x": STATS_PANEL_WIDTH,
+                "board_y": 0,
+            }
+
         available_board_width = max(0, self.width() - STATS_PANEL_WIDTH)
         available_board_height = max(0, self.height())
         cell_size = max(
@@ -192,12 +241,8 @@ class GameWidget(BaseWidget):
         )
         board_size = cell_size * GRID_SIZE
         content_width = STATS_PANEL_WIDTH + board_size
-        if self._floating_container() is None:
-            content_x = max(0, (self.width() - content_width) // 2)
-            content_y = max(0, (self.height() - board_size) // 2)
-        else:
-            content_x = 0
-            content_y = 0
+        content_x = max(0, (self.width() - content_width) // 2)
+        content_y = max(0, (self.height() - board_size) // 2)
 
         return {
             "cell_size": cell_size,
@@ -968,6 +1013,9 @@ class GameWidget(BaseWidget):
 
     def paintEvent(self, event):
         """Handle paint event"""
+        if self._sync_window_resize_policy():
+            return
+
         painter = QPainter(self)
         metrics = self._layout_metrics()
         cell_size = metrics["cell_size"]

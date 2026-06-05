@@ -7,8 +7,8 @@ from ..constants import VERSION
 
 class SaveManager:
     DEFAULT_SETTINGS = {
-        "auto_start": True,
-        "dock_widget": True,
+        "auto_start": False,
+        "dock_widget": False,
     }
 
     @classmethod
