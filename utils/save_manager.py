@@ -6,10 +6,21 @@ from ..constants import VERSION
 
 
 class SaveManager:
+    DEFAULT_SETTINGS = {
+        "auto_start": True,
+        "dock_widget": True,
+    }
+
     @classmethod
     def get_save_path(cls):
         profile_dir = Path(mw.pm.profileFolder())
         save_path = profile_dir / "collection.media/_anki_farm_tycoon_save.json"
+        return save_path
+
+    @classmethod
+    def get_settings_path(cls):
+        profile_dir = Path(mw.pm.profileFolder())
+        save_path = profile_dir / "collection.media/_anki_farm_tycoon_settings.json"
         return save_path
 
     # Save location for version 1.0.0
@@ -72,3 +83,39 @@ class SaveManager:
         except Exception as e:
             print(f"Error loading game: {e}")
             return None
+
+    @classmethod
+    def load_settings(cls):
+        """Load addon settings, filling missing keys with defaults."""
+        settings = cls.DEFAULT_SETTINGS.copy()
+        try:
+            settings_path = cls.get_settings_path()
+            if settings_path.exists():
+                with open(settings_path, 'r', encoding='utf-8') as f:
+                    saved_settings = json.load(f)
+                    if isinstance(saved_settings, dict):
+                        settings.update({
+                            key: bool(saved_settings.get(key, default_value))
+                            for key, default_value in cls.DEFAULT_SETTINGS.items()
+                        })
+        except Exception as e:
+            print(f"Error loading settings: {e}")
+        return settings
+
+    @classmethod
+    def save_settings(cls, settings):
+        """Save addon settings."""
+        try:
+            settings_path = cls.get_settings_path()
+            settings_path.parent.mkdir(parents=True, exist_ok=True)
+            serializable_settings = cls.DEFAULT_SETTINGS.copy()
+            serializable_settings.update({
+                key: bool(settings.get(key, default_value))
+                for key, default_value in cls.DEFAULT_SETTINGS.items()
+            })
+
+            with open(settings_path, 'w', encoding='utf-8') as f:
+                json.dump(serializable_settings, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"Error saving settings: {e}")
+            raise

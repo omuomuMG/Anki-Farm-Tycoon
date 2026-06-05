@@ -13,6 +13,7 @@ from ..models.employee import Employee
 from .animal_breed import AnimalBreed
 from .shop_window import ShopWindow
 from .statistics_window import StatisticsWindow
+from .settings_window import SettingsWindow
 from ..models.global_status import GlobalStats
 from ..models.animal import Animal
 from ..models.animal_type import AnimalType
@@ -71,7 +72,10 @@ class GameWidget(BaseWidget):
         # Initialize paint handler
         self.paint_handler = PaintHandler()
 
-        gui_hooks.reviewer_did_answer_card.append(self.called)
+        self._reviewer_hook = self.called
+        self._reviewer_hook_registered = True
+        gui_hooks.reviewer_did_answer_card.append(self._reviewer_hook)
+        self.destroyed.connect(lambda: self.unregister_reviewer_hook())
 
         self.global_stats = GlobalStats()
         self.load_global_stats()
@@ -82,6 +86,20 @@ class GameWidget(BaseWidget):
         self.double_click_threshold = 500
 
         
+
+    def unregister_reviewer_hook(self):
+        if not getattr(self, "_reviewer_hook_registered", False):
+            return
+
+        try:
+            gui_hooks.reviewer_did_answer_card.remove(self._reviewer_hook)
+        except ValueError:
+            pass
+        self._reviewer_hook_registered = False
+
+    def closeEvent(self, event):
+        self.unregister_reviewer_hook()
+        super().closeEvent(event)
 
 
     def sizeHint(self):
@@ -199,7 +217,7 @@ class GameWidget(BaseWidget):
         self.shop_button.setGeometry(panel_x + 10, panel_bottom - 200, 100, 30)
         self.employee_button.setGeometry(panel_x + 130, panel_bottom - 200, 100, 30)
         self.stats_button.setGeometry(panel_x + 10, panel_bottom - 80, 100, 30)
-        self.reset_button.setGeometry(panel_x + 10, panel_bottom - 40, 100, 30)
+        self.settings_button.setGeometry(panel_x + 10, panel_bottom - 40, 100, 30)
         self.instruction_button.setGeometry(panel_x + 130, panel_bottom - 40, 100, 30)
         self.rate_button.setGeometry(panel_x + 130, panel_bottom - 80, 100, 30)
         self.leader_board_button.setGeometry(panel_x + 10, panel_bottom - 120, 100, 30)
@@ -298,10 +316,10 @@ class GameWidget(BaseWidget):
             }
         """)
 
-        # Reset button
-        self.reset_button = QPushButton("🔄Reset Game", self)
-        self.register_button(self.reset_button, self.reset_game)
-        self.reset_button.setStyleSheet("""
+        # Settings button
+        self.settings_button = QPushButton("⚙️Settings", self)
+        self.register_button(self.settings_button, self.show_settings)
+        self.settings_button.setStyleSheet("""
             QPushButton {
                 background-color: #A0522D;
                 color: white;
@@ -464,6 +482,14 @@ class GameWidget(BaseWidget):
         """Show statistics window"""
         stats_window = StatisticsWindow(self.global_stats, self)
         stats_window.exec()
+
+    def show_settings(self):
+        """Show settings window"""
+        settings_window = SettingsWindow(self, self)
+        if settings_window.exec() and settings_window.settings_changed:
+            apply_settings = getattr(mw, "anki_farm_apply_window_settings", None)
+            if apply_settings:
+                QTimer.singleShot(0, apply_settings)
 
     def load_game(self):
         """Load or initialize game state"""
