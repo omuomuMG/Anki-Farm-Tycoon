@@ -28,8 +28,8 @@ from ..constants import (
 )
 from pathlib import Path
 
-
-class GameWidget(BaseWindow):
+from .base_Qwidget import BaseWidget
+class GameWidget(BaseWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
