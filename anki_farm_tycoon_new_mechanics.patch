@@ -1,0 +1,542 @@
+diff --git a/constants.py b/constants.py
+index f84c2da..90c11bf 100644
+--- a/constants.py
++++ b/constants.py
+@@ -36,6 +36,28 @@ FIELD_PRICE_MULTIPLIER = 1.5
+ 
+ VERSION = "1.6.0"
+ 
++# --- Sheep ---
++SHEEP_GROWTH_RANGE = (0, 2)
++SHEEP_PRODUCTION_CHANCE = 0.05
++SHEEP_BASE_PRICE = 500
++SHEEP_AGAIN_BONUS_PER_CARD = 0.05   # +5% sale price per "Again" answered this cycle
++
++# --- Chicken+Cow synergy ---
++CHICKEN_COW_SYNERGY_MULTIPLIER = 2   # egg value doubles when a cow is present
++
++# --- Random events ---
++RANDOM_EVENT_CHANCE = 0.02           # 2% per card
++RANDOM_EVENT_FAIR_MULTIPLIER = 2     # next sale worth 2x
++RANDOM_EVENT_RAIN_BOOST = 5          # all animals +5% growth
++RANDOM_EVENT_EPIDEMIC_LOSS = 10      # one random animal loses 10% growth
++RANDOM_EVENT_HARVEST_BONUS = 50      # instant +50 coins
++
++# --- Unicorn (legendary) ---
++UNICORN_EASY_STREAK_REQUIRED = 5     # consecutive "Easy" cards to summon
++UNICORN_GROWTH_RANGE = (0, 1)
++UNICORN_BASE_PRICE = 3000
++UNICORN_COOLDOWN_CARDS = 50          # cards to wait after unicorn dies
++
+ # Animal render tuning (per animal x stage)
+ # scale: Multiplier for base size
+ # offset_x / offset_y: Pixel offset from centered position
+@@ -56,4 +78,12 @@ ANIMAL_RENDER_SETTINGS = {
+         "adult": {"scale": 1.0, "offset_x": 0, "offset_y": 0},
+         "child": {"scale": 0.9, "offset_x": 0, "offset_y": 10},
+     },
++    "SHEEP": {
++        "adult": {"scale": 1.0, "offset_x": 0, "offset_y": 0},
++        "child": {"scale": 0.8, "offset_x": 0, "offset_y": 10},
++    },
++    "UNICORN": {
++        "adult": {"scale": 1.0, "offset_x": 0, "offset_y": 0},
++        "child": {"scale": 0.9, "offset_x": 0, "offset_y": 10},
++    },
+ }
+diff --git a/gui/animal_breed.py b/gui/animal_breed.py
+index 1cc9913..7991cfc 100644
+--- a/gui/animal_breed.py
++++ b/gui/animal_breed.py
+@@ -6,14 +6,15 @@ class AnimalBreed:
+         self.animal_type = animal_type
+         self.level = 0
+         self.is_unlocked = animal_type == AnimalType.CHICKEN
+-        self.max_level = 0 if animal_type == AnimalType.HORSE else 20
++        self.max_level = 0 if animal_type in (AnimalType.HORSE, AnimalType.UNICORN) else 20
+ 
+     def get_unlock_cost(self) -> int:
+         costs = {
+             AnimalType.PIG: 1000,
+             AnimalType.COW: 2000,
+             AnimalType.HORSE: 5000,
+-            AnimalType.CHICKEN: 0
++            AnimalType.CHICKEN: 0,
++            AnimalType.SHEEP: 1500,
+         }
+         return costs.get(self.animal_type, 0)
+ 
+@@ -22,17 +23,19 @@ class AnimalBreed:
+             AnimalType.PIG: 800,
+             AnimalType.CHICKEN: 500,
+             AnimalType.COW: 1500,
+-            AnimalType.HORSE: 0
++            AnimalType.HORSE: 0,
++            AnimalType.SHEEP: 1000,
+         }
+         return int(base_cost[self.animal_type] * (1.5 ** self.level))
+ 
+     def get_production_chance(self) -> float:
+-        if self.animal_type == AnimalType.HORSE:
++        if self.animal_type in (AnimalType.HORSE, AnimalType.UNICORN):
+             return 0.0
+         base_chance = {
+-            AnimalType.PIG: 0.01,    # 1% → 最大11%
+-            AnimalType.CHICKEN: 0.10, # 10% → 最大20%
+-            AnimalType.COW: 0.02     # 2% → 最大12%
++            AnimalType.PIG: 0.01,
++            AnimalType.CHICKEN: 0.10,
++            AnimalType.COW: 0.02,
++            AnimalType.SHEEP: 0.05,
+         }
+-        level_bonus = self.level * 0.01  # 1レベルごとに1%上昇
++        level_bonus = self.level * 0.01
+         return base_chance[self.animal_type] + level_bonus
+diff --git a/gui/game_widget.py b/gui/game_widget.py
+index 1da4e9f..f6e780c 100644
+--- a/gui/game_widget.py
++++ b/gui/game_widget.py
+@@ -24,7 +24,10 @@ from ..gui.paint_handler import PaintHandler
+ from .leaderboard import LeaderBoardWindow, get_user_data, update_user_data
+ from ..constants import (
+     INITIAL_CELL_SIZE, STATS_PANEL_WIDTH, GRID_SIZE,
+-    INITIAL_MONEY, BASE_FIELD_PRICE, FIELD_PRICE_MULTIPLIER, ADDON_DIR, VERSION
++    INITIAL_MONEY, BASE_FIELD_PRICE, FIELD_PRICE_MULTIPLIER, ADDON_DIR, VERSION,
++    RANDOM_EVENT_CHANCE, RANDOM_EVENT_FAIR_MULTIPLIER, RANDOM_EVENT_RAIN_BOOST,
++    RANDOM_EVENT_EPIDEMIC_LOSS, RANDOM_EVENT_HARVEST_BONUS,
++    UNICORN_EASY_STREAK_REQUIRED, UNICORN_COOLDOWN_CARDS,
+ )
+ from pathlib import Path
+ 
+@@ -84,6 +87,12 @@ class GameWidget(BaseWidget):
+         self.last_unlock_click_time = 0
+         self.double_click_threshold = 500
+ 
++        # --- New mechanics state ---
++        self.easy_streak = 0                  # consecutive "Easy" cards
++        self.unicorn_cooldown = 0             # cards remaining before unicorn can spawn
++        self.fair_active = False              # next sale is worth 2x (random event)
++        self.active_event_message = None      # shown to player when event fires
++
+         
+ 
+     def unregister_reviewer_hook(self):
+@@ -557,7 +566,9 @@ class GameWidget(BaseWidget):
+             AnimalType.PIG: {"sold": 0, "dead": 0},
+             AnimalType.CHICKEN: {"sold": 0, "dead": 0},
+             AnimalType.COW: {"sold": 0, "dead": 0},
+-            AnimalType.HORSE: {"sold": 0, "dead": 0}
++            AnimalType.HORSE: {"sold": 0, "dead": 0},
++            AnimalType.SHEEP: {"sold": 0, "dead": 0},
++            AnimalType.UNICORN: {"sold": 0, "dead": 0},
+         }
+ 
+         self.employees={}
+@@ -566,13 +577,15 @@ class GameWidget(BaseWidget):
+             AnimalType.PIG: AnimalBreed(AnimalType.PIG),
+             AnimalType.CHICKEN: AnimalBreed(AnimalType.CHICKEN),
+             AnimalType.COW: AnimalBreed(AnimalType.COW),
+-            AnimalType.HORSE: AnimalBreed(AnimalType.HORSE)
++            AnimalType.HORSE: AnimalBreed(AnimalType.HORSE),
++            AnimalType.SHEEP: AnimalBreed(AnimalType.SHEEP),
+         }
+ 
+         self.breeds[AnimalType.CHICKEN].is_unlocked = True
+         self.breeds[AnimalType.PIG].is_unlocked = False
+         self.breeds[AnimalType.COW].is_unlocked = False
+         self.breeds[AnimalType.HORSE].is_unlocked = False
++        self.breeds[AnimalType.SHEEP].is_unlocked = False
+ 
+         for breed in self.breeds.values():
+             breed.level = 0
+@@ -591,6 +604,9 @@ class GameWidget(BaseWidget):
+     def load_saved_game(self, save_data):
+         self.money = save_data["money"]
+         self.unlocked_fields = save_data["unlocked_fields"]
++        self.easy_streak = save_data.get("easy_streak", 0)
++        self.unicorn_cooldown = save_data.get("unicorn_cooldown", 0)
++        self.fair_active = save_data.get("fair_active", False)
+ 
+         # Load statistics
+         self.stats = {}
+@@ -620,6 +636,7 @@ class GameWidget(BaseWidget):
+                         animal.is_dead = animal_data["is_dead"]
+                         animal.has_product = animal_data["has_product"]
+                         animal.max_growth = animal_data["max_growth"]
++                        animal.again_count = animal_data.get("again_count", 0)
+                         field.animal = animal
+                 else:
+                     field = Field(x, y)
+@@ -677,6 +694,9 @@ class GameWidget(BaseWidget):
+             "money": self.money,
+             "previous_money": previous_money,
+             "unlocked_fields": self.unlocked_fields,
++            "easy_streak": getattr(self, "easy_streak", 0),
++            "unicorn_cooldown": getattr(self, "unicorn_cooldown", 0),
++            "fair_active": getattr(self, "fair_active", False),
+             "stats": {
+                 animal_type.name: stats
+                 for animal_type, stats in self.stats.items()
+@@ -691,7 +711,8 @@ class GameWidget(BaseWidget):
+                             "growth": field.animal.growth,
+                             "is_dead": field.animal.is_dead,
+                             "has_product": field.animal.has_product,
+-                            "max_growth": field.animal.max_growth
++                            "max_growth": field.animal.max_growth,
++                            "again_count": getattr(field.animal, "again_count", 0),
+                         } if field.animal else None
+                     }
+                     for field in row
+@@ -944,7 +965,9 @@ class GameWidget(BaseWidget):
+                 AnimalType.PIG: {"sold": 0, "dead": 0},
+                 AnimalType.CHICKEN: {"sold": 0, "dead": 0},
+                 AnimalType.COW: {"sold": 0, "dead": 0},
+-                AnimalType.HORSE: {"sold": 0, "dead": 0}
++                AnimalType.HORSE: {"sold": 0, "dead": 0},
++                AnimalType.SHEEP: {"sold": 0, "dead": 0},
++                AnimalType.UNICORN: {"sold": 0, "dead": 0},
+             }
+             
+             self.employees = {}
+@@ -954,12 +977,19 @@ class GameWidget(BaseWidget):
+                 AnimalType.PIG: AnimalBreed(AnimalType.PIG),
+                 AnimalType.CHICKEN: AnimalBreed(AnimalType.CHICKEN),
+                 AnimalType.COW: AnimalBreed(AnimalType.COW),
+-                AnimalType.HORSE: AnimalBreed(AnimalType.HORSE)
++                AnimalType.HORSE: AnimalBreed(AnimalType.HORSE),
++                AnimalType.SHEEP: AnimalBreed(AnimalType.SHEEP),
+             }
+             self.breeds[AnimalType.CHICKEN].is_unlocked = True
+             self.breeds[AnimalType.PIG].is_unlocked = False
+             self.breeds[AnimalType.COW].is_unlocked = False
+             self.breeds[AnimalType.HORSE].is_unlocked = False
++            self.breeds[AnimalType.SHEEP].is_unlocked = False
++
++            # Reset new mechanics state
++            self.easy_streak = 0
++            self.unicorn_cooldown = 0
++            self.fair_active = False
+             
+             for breed in self.breeds.values():
+                 breed.level = 0
+@@ -1150,29 +1180,29 @@ class GameWidget(BaseWidget):
+         if not field.animal:
+             return
+         
+-        # Get sale price using existing Animal class methods
+         animal = field.animal
+         
+-        # Check if animal can be sold (using existing can_sell() method)
+         if not animal.can_sell():
+-            # Show message explaining why animal cannot be sold
+             self.show_cannot_sell_message(animal)
+             return
+         
+-        # Use existing get_sale_price() method
+-        sell_price = animal.get_sale_price()
+-        
+-        # Get animal name (for display)
++        # Apply fair_active and unicorn streak multiplier
++        sell_price = animal.get_sale_price(fair_active=self.fair_active)
++
++        # Unicorn: bonus multiplier based on current easy_streak at time of sale
++        if animal.animal_type == AnimalType.UNICORN and self.easy_streak > 0:
++            sell_price = int(sell_price * (1 + self.easy_streak * 0.1))
++
++        if self.fair_active:
++            self.fair_active = False
++
+         animal_name = animal.animal_type.label
+         
+-        # Remove animal and add money
+         field.remove_animal()
+         self.money += sell_price
+         
+-        # Save game
+         self.save_game()
+         
+-        # Show sale message at top of screen (optional)
+         self.show_sale_message(animal_name, sell_price)
+ 
+         self.stats[animal.animal_type]["sold"] += 1
+@@ -1180,7 +1210,6 @@ class GameWidget(BaseWidget):
+         self.global_stats.total_money_earned += sell_price
+         self.global_stats.total_animals_sold_by_type[animal_name.upper()] += 1
+ 
+-        field.remove_animal()
+         self.save_game()
+         self.save_global_stats()
+         
+@@ -1293,6 +1322,59 @@ class GameWidget(BaseWidget):
+ 
+     def called(self, reviewer, card, ease):
+         """Handle Anki card review events"""
++        # ease: 1=Again, 2=Hard, 3=Good, 4=Easy
++
++        # --- Unicorn: easy streak tracking ---
++        if ease == 4:
++            self.easy_streak += 1
++        else:
++            self.easy_streak = 0
++
++        if self.unicorn_cooldown > 0:
++            self.unicorn_cooldown -= 1
++
++        # --- Sheep: count "Again" cards during this animal's life ---
++        if ease == 1:
++            for row in self.fields:
++                for field in row:
++                    if field.animal and field.animal.animal_type == AnimalType.SHEEP and not field.animal.is_dead:
++                        field.animal.again_count += 1
++
++        # --- Random events (2% chance per card) ---
++        event_message = None
++        if random.random() < RANDOM_EVENT_CHANCE:
++            all_alive = [
++                field for row in self.fields for field in row
++                if field.animal and not field.animal.is_dead
++            ]
++            event_roll = random.randint(0, 3)
++
++            if event_roll == 0:
++                self.fair_active = True
++                event_message = "🎪 Feira do campo! Proxima venda vale 2x!"
++
++            elif event_roll == 1 and all_alive:
++                for field in all_alive:
++                    field.animal.growth = min(
++                        field.animal.growth + RANDOM_EVENT_RAIN_BOOST,
++                        field.animal.max_growth
++                    )
++                event_message = "🌧️ Chuva de verao! Todos os animais cresceram +5%!"
++
++            elif event_roll == 2 and all_alive:
++                target = random.choice(all_alive)
++                target.animal.growth = max(0, target.animal.growth - RANDOM_EVENT_EPIDEMIC_LOSS)
++                event_message = f"🦠 Epidemia leve! {target.animal.animal_type.emoji} perdeu 10% de crescimento!"
++
++            elif event_roll == 3:
++                self.money += RANDOM_EVENT_HARVEST_BONUS
++                self.global_stats.total_money_earned += RANDOM_EVENT_HARVEST_BONUS
++                event_message = f"🌾 Colheita abundante! +{RANDOM_EVENT_HARVEST_BONUS} moedas!"
++
++        if event_message:
++            self.show_sale_message(event_message)
++
++        # --- Pig boost ---
+         pig_products = []
+         for row in self.fields:
+             for field in row:
+@@ -1317,6 +1399,12 @@ class GameWidget(BaseWidget):
+                 target_field.animal.growth_boost = boost_amount
+                 boosted_animals.append((target_field, boost_amount))
+ 
++        # --- Check cow presence for chicken synergy ---
++        has_cow = any(
++            field.animal and field.animal.animal_type == AnimalType.COW and not field.animal.is_dead
++            for row in self.fields for field in row
++        )
++
+         total_production = 0
+         for row in self.fields:
+             for field in row:
+@@ -1327,32 +1415,49 @@ class GameWidget(BaseWidget):
+                     field.animal.grow()
+                     print(f"Animal growth: {field.animal.growth}%")
+ 
+-
+                     field.animal.has_product = False
+-                    production = field.animal.produce()
++                    production = field.animal.produce(has_cow_nearby=has_cow)
+                     if production > 0:
+                         total_production += production
+                         self.global_stats.total_animals_production_by_type[field.animal.animal_type.name] += 1
+ 
+                     elif field.animal.is_dead:
+-                        remove_probability = random.randint(0,15)
++                        remove_probability = random.randint(0, 15)
+                         if remove_probability == 0:
+-                            # Write to _anki_farm_tycoon_save.json. # Issue 19
+                             self.stats[field.animal.animal_type]["dead"] += 1
+-                            # Copy to anki_farm_tycoon_global_stats.json.
+                             self.global_stats.total_animals_died_by_type[field.animal.animal_type.name] = self.stats[field.animal.animal_type]["dead"]
++                            if field.animal.animal_type == AnimalType.UNICORN:
++                                self.unicorn_cooldown = UNICORN_COOLDOWN_CARDS
++                                self.easy_streak = 0
+                             field.remove_animal()
+ 
+-
+         if total_production > 0:
+             self.money += total_production
+             self.global_stats.total_money_earned += total_production
+ 
+-        bonus_earning = random.randint(0,2)
+-
++        bonus_earning = random.randint(0, 2)
+         self.money += bonus_earning
+         self.global_stats.total_money_earned += bonus_earning
+ 
++        # --- Unicorn summoning ---
++        if (self.easy_streak >= UNICORN_EASY_STREAK_REQUIRED
++                and self.unicorn_cooldown == 0):
++            field_count = 0
++            unlocked_empty = []
++            for row in self.fields:
++                for field in row:
++                    field_count += 1
++                    if field_count <= self.unlocked_fields and field.animal is None:
++                        unlocked_empty.append(field)
++            if unlocked_empty:
++                chosen = random.choice(unlocked_empty)
++                unicorn = Animal(AnimalType.UNICORN)
++                chosen.add_animal(unicorn)
++                self.easy_streak = 0
++                self.show_sale_message(
++                    f"🦄 Um Unicornio apareceu! (streak de {UNICORN_EASY_STREAK_REQUIRED} Easy)"
++                )
++
+         self.global_stats.update_money_record(self.money)
+         self.global_stats.update_day_count()
+ 
+diff --git a/gui/shop_window.py b/gui/shop_window.py
+index 53a9110..f3cdd0c 100644
+--- a/gui/shop_window.py
++++ b/gui/shop_window.py
+@@ -33,7 +33,7 @@ class ShopWindow(BaseWindow):
+         self.main_layout.addWidget(self.scroll_area)
+ 
+         self.frames = {}
+-        for animal_type in [AnimalType.CHICKEN, AnimalType.PIG, AnimalType.COW, AnimalType.HORSE]:
++        for animal_type in [AnimalType.CHICKEN, AnimalType.PIG, AnimalType.COW, AnimalType.HORSE, AnimalType.SHEEP]:
+             frame = self.create_animal_frame(animal_type)
+             self.frames[animal_type] = frame
+             self.scroll_layout.addWidget(frame)
+@@ -155,7 +155,7 @@ class ShopWindow(BaseWindow):
+             frame.deleteLater()
+         self.frames.clear()
+ 
+-        for animal_type in [AnimalType.CHICKEN, AnimalType.PIG, AnimalType.COW, AnimalType.HORSE]:
++        for animal_type in [AnimalType.CHICKEN, AnimalType.PIG, AnimalType.COW, AnimalType.HORSE, AnimalType.SHEEP]:
+             frame = self.create_animal_frame(animal_type)
+             self.frames[animal_type] = frame
+             self.scroll_layout.addWidget(frame)
+diff --git a/models/animal.py b/models/animal.py
+index c765a90..656d82d 100644
+--- a/models/animal.py
++++ b/models/animal.py
+@@ -6,7 +6,10 @@ from ..constants import (
+     CHICKEN_MIN_PRODUCTION, CHICKEN_MAX_PRODUCTION,
+     COW_PRODUCTION_VALUE, PIG_PRODUCTION_CHANCE,
+     CHICKEN_GROWTH_RANGE, PIG_GROWTH_RANGE, COW_GROWTH_RANGE, HORSE_GROWTH_RANGE,
+-    PIG_SALE_BONUS_PER_LEVEL
++    PIG_SALE_BONUS_PER_LEVEL,
++    SHEEP_GROWTH_RANGE, SHEEP_PRODUCTION_CHANCE, SHEEP_AGAIN_BONUS_PER_CARD,
++    UNICORN_GROWTH_RANGE,
++    CHICKEN_COW_SYNERGY_MULTIPLIER,
+ )
+ 
+ class Animal:
+@@ -18,19 +21,21 @@ class Animal:
+         self.is_dead = False
+         self.has_product = False
+         self.breed_level = breed_level
++        # Sheep: tracks "Again" cards answered during this growth cycle
++        self.again_count = 0
+ 
+     def get_production_chance(self) -> float:
+         """calculate production chance"""
+-        if self.animal_type == AnimalType.HORSE:
++        if self.animal_type in (AnimalType.HORSE, AnimalType.UNICORN):
+             return 0.0
+ 
+         base_chance = {
+             AnimalType.PIG: PIG_PRODUCTION_CHANCE,
+             AnimalType.CHICKEN: CHICKEN_PRODUCTION_CHANCE,
+-            AnimalType.COW: COW_PRODUCTION_CHANCE
++            AnimalType.COW: COW_PRODUCTION_CHANCE,
++            AnimalType.SHEEP: SHEEP_PRODUCTION_CHANCE,
+         }.get(self.animal_type, 0)
+ 
+-        # レベルごとに1%ずつ上昇
+         level_bonus = self.breed_level * 0.01
+         return base_chance + level_bonus
+ 
+@@ -39,7 +44,9 @@ class Animal:
+             AnimalType.CHICKEN: CHICKEN_GROWTH_RANGE,
+             AnimalType.PIG: PIG_GROWTH_RANGE,
+             AnimalType.COW: COW_GROWTH_RANGE,
+-            AnimalType.HORSE: HORSE_GROWTH_RANGE
++            AnimalType.HORSE: HORSE_GROWTH_RANGE,
++            AnimalType.SHEEP: SHEEP_GROWTH_RANGE,
++            AnimalType.UNICORN: UNICORN_GROWTH_RANGE,
+         }.get(self.animal_type, (0, GROWTH_RATE))
+ 
+     def grow(self):
+@@ -52,24 +59,32 @@ class Animal:
+             if self.growth >= self.max_growth:
+                 self.is_dead = True
+ 
+-    def produce(self) -> int:
++    def produce(self, has_cow_nearby: bool = False) -> int:
+         if self.is_dead:
+             return 0
+ 
+         if random.random() < self.get_production_chance():
+             self.has_product = True
+             if self.animal_type == AnimalType.CHICKEN:
+-                return random.randint(5, 10)
++                base = random.randint(CHICKEN_MIN_PRODUCTION, CHICKEN_MAX_PRODUCTION)
++                # Sinergia: dobra o valor do ovo se houver uma vaca no campo
++                if has_cow_nearby:
++                    base *= CHICKEN_COW_SYNERGY_MULTIPLIER
++                return base
+             elif self.animal_type == AnimalType.COW:
+-                return 50
++                return COW_PRODUCTION_VALUE
+             elif self.animal_type == AnimalType.PIG:
+                 self.grow()
+                 return 1
++            elif self.animal_type == AnimalType.SHEEP:
++                return 20
+             elif self.animal_type == AnimalType.HORSE:
+                 return 0
++            elif self.animal_type == AnimalType.UNICORN:
++                return 0
+         return 0
+ 
+-    def get_sale_price(self):
++    def get_sale_price(self, fair_active: bool = False):
+         if self.is_dead:
+             return 0
+         growth_multiplier = 1 + (self.growth / 100)
+@@ -78,6 +93,17 @@ class Animal:
+         if self.animal_type == AnimalType.PIG and self.breed_level > 0:
+             sale_price *= (1 + (self.breed_level * PIG_SALE_BONUS_PER_LEVEL))
+ 
++        # Sheep: bonus for "Again" cards answered during this cycle
++        if self.animal_type == AnimalType.SHEEP and self.again_count > 0:
++            again_bonus = 1 + (self.again_count * SHEEP_AGAIN_BONUS_PER_CARD)
++            sale_price *= again_bonus
++
++        # Unicorn: sale price scales with caller's easy streak (passed externally)
++        # The streak multiplier is applied in game_widget when selling
++
++        if fair_active:
++            sale_price *= 2
++
+         return int(sale_price)
+ 
+     def can_sell(self):
+diff --git a/models/animal_type.py b/models/animal_type.py
+index a97040f..7881a85 100644
+--- a/models/animal_type.py
++++ b/models/animal_type.py
+@@ -5,6 +5,8 @@ class AnimalType(Enum):
+     CHICKEN = ("Chicken", 80, "🐔")
+     COW = ("Cow", 300, "🐮")
+     HORSE = ("Horse", 1200, "🐎")
++    SHEEP = ("Sheep", 500, "🐑")
++    UNICORN = ("Unicorn", 3000, "🦄")
+     EMPTY = ("Empty", 0, "")
+ 
+     def __init__(self, label, price, emoji):
