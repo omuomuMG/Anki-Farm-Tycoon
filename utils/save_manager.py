@@ -40,6 +40,10 @@ class SaveManager:
                 "money": game_state["money"],
                 "previous_money": game_state["previous_money"],
                 "unlocked_fields": game_state["unlocked_fields"],
+                "easy_streak": game_state.get("easy_streak", 0),
+                "unicorn_cooldown": game_state.get("unicorn_cooldown", 0),
+                "unicorn_summoned_for_streak": game_state.get("unicorn_summoned_for_streak", False),
+                "fair_active": game_state.get("fair_active", False),
                 "stats": game_state["stats"],
                 "fields": [
                     [

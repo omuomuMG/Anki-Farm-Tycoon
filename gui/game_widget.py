@@ -1198,9 +1198,7 @@ class GameWidget(BaseWidget):
         
         field.remove_animal()
         self.money += sell_price
-        
-        self.save_game()
-        
+
         self.show_sale_message(animal_name, sell_price)
 
         self.stats[animal.animal_type]["sold"] += 1
@@ -1365,6 +1363,8 @@ class GameWidget(BaseWidget):
                         field.animal.growth + RANDOM_EVENT_RAIN_BOOST,
                         field.animal.max_growth
                     )
+                    if field.animal.growth >= field.animal.max_growth:
+                        field.animal.is_dead = True
                 event_message = "🌧️ Chuva de verao! Todos os animais cresceram +5%!"
 
             elif event_roll == 2 and all_alive:

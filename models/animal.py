@@ -23,7 +23,7 @@ class Animal:
         self.death_processed = False
         self.has_product = False
         self.breed_level = breed_level
-        # Sheep: tracks "Again" cards answered during this growth cycle
+        # Sheep: tracks "Again" cards answered while this Sheep is alive
         self.again_count = 0
 
     def get_production_chance(self) -> float:
@@ -95,7 +95,7 @@ class Animal:
         if self.animal_type == AnimalType.PIG and self.breed_level > 0:
             sale_price *= (1 + (self.breed_level * PIG_SALE_BONUS_PER_LEVEL))
 
-        # Sheep: bonus for "Again" cards answered during this cycle
+        # Sheep: bonus for "Again" cards answered while this Sheep is alive
         if self.animal_type == AnimalType.SHEEP and self.again_count > 0:
             again_bonus = 1 + (self.again_count * SHEEP_AGAIN_BONUS_PER_CARD)
             sale_price *= again_bonus
