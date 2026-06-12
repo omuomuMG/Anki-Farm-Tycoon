@@ -52,7 +52,11 @@ You gamify your learning!!
 - Sell animals that have over 50% maturity by clicking the cell
 - Unlock new species and level up in the shop window
 - **Check the leaderboard** to see how you rank against other players!
-  <img width="725" alt="スクリーンショット 2025-05-30 17 12 46" src="https://github.com/user-attachments/assets/129ea164-d039-4f79-9f88-80fd08de425d" />
+
+<a href="https://www.tiktok.com/@.tychi/video/7593204861198421278">
+  <img src="https://github.com/user-attachments/assets/f009f418-f9b4-40f4-a79a-3972c70f77b6" width="500">
+</a>
+
 
 # How to Earn Money
 
