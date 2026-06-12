@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (QVBoxLayout, QLabel, QPushButton, QGridLayout,
 
 
 from .base_window import BaseWindow
-from ..models.animal_type import AnimalType
+from ..models.animal_type import PURCHASABLE_ANIMAL_TYPES
 
 
 
@@ -33,7 +33,7 @@ class ShopWindow(BaseWindow):
         self.main_layout.addWidget(self.scroll_area)
 
         self.frames = {}
-        for animal_type in [AnimalType.CHICKEN, AnimalType.PIG, AnimalType.COW, AnimalType.HORSE]:
+        for animal_type in PURCHASABLE_ANIMAL_TYPES:
             frame = self.create_animal_frame(animal_type)
             self.frames[animal_type] = frame
             self.scroll_layout.addWidget(frame)
@@ -155,7 +155,7 @@ class ShopWindow(BaseWindow):
             frame.deleteLater()
         self.frames.clear()
 
-        for animal_type in [AnimalType.CHICKEN, AnimalType.PIG, AnimalType.COW, AnimalType.HORSE]:
+        for animal_type in PURCHASABLE_ANIMAL_TYPES:
             frame = self.create_animal_frame(animal_type)
             self.frames[animal_type] = frame
             self.scroll_layout.addWidget(frame)

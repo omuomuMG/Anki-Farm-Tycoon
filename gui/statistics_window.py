@@ -1,5 +1,7 @@
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton
 
+from ..models.animal_type import AnimalType, TRACKED_ANIMAL_TYPES
+
 
 
 class StatisticsWindow(QDialog):
@@ -33,34 +35,28 @@ class StatisticsWindow(QDialog):
         animals.setStyleSheet(section_style)
         layout.addWidget(animals)
 
-        chicken_stats = QLabel("🐔 Chicken:")
-        chicken_stats.setStyleSheet(stat_style)
-        layout.addWidget(chicken_stats)
-        layout.addWidget(QLabel(f"    Sold: {global_stats.total_animals_sold_by_type.get('CHICKEN', 0)}"))
-        layout.addWidget(QLabel(f"    Deaths: {global_stats.total_animals_died_by_type.get('CHICKEN', 0)}"))
-        layout.addWidget(QLabel(f"    Eggs : {global_stats.total_animals_production_by_type.get('CHICKEN', 0)}"))
+        production_labels = {
+            AnimalType.CHICKEN: "Eggs",
+            AnimalType.PIG: "Mysterious Light",
+            AnimalType.COW: "Milks",
+            AnimalType.HORSE: "Drops",
+            AnimalType.SHEEP: "Wool",
+            AnimalType.UNICORN: "Magic",
+        }
 
-        pig_stats = QLabel("🐷 Pig:")
-        pig_stats.setStyleSheet(stat_style)
-        layout.addWidget(pig_stats)
-        layout.addWidget(QLabel(f"    Sold: {global_stats.total_animals_sold_by_type.get('PIG', 0)}"))
-        layout.addWidget(QLabel(f"    Deaths: {global_stats.total_animals_died_by_type.get('PIG', 0)}"))
-        layout.addWidget(QLabel(f"    Mysterious Light : {global_stats.total_animals_production_by_type.get('PIG', 0)}"))
+        for animal_type in TRACKED_ANIMAL_TYPES:
+            animal_stats = QLabel(f"{animal_type.emoji} {animal_type.label}:")
+            animal_stats.setStyleSheet(stat_style)
+            layout.addWidget(animal_stats)
+            layout.addWidget(QLabel(f"    Sold: {global_stats.total_animals_sold_by_type.get(animal_type.name, 0)}"))
+            layout.addWidget(QLabel(f"    Deaths: {global_stats.total_animals_died_by_type.get(animal_type.name, 0)}"))
 
-
-        cow_stats = QLabel("🐮 Cow:")
-        cow_stats.setStyleSheet(stat_style)
-        layout.addWidget(cow_stats)
-        layout.addWidget(QLabel(f"    Sold: {global_stats.total_animals_sold_by_type.get('COW', 0)}"))
-        layout.addWidget(QLabel(f"    Deaths: {global_stats.total_animals_died_by_type.get('COW', 0)}"))
-        layout.addWidget(QLabel(f"    Milks : {global_stats.total_animals_production_by_type.get('COW', 0)}"))
-
-        horse_stats = QLabel("🐎 Horse:")
-        horse_stats.setStyleSheet(stat_style)
-        layout.addWidget(horse_stats)
-        layout.addWidget(QLabel(f"    Sold: {global_stats.total_animals_sold_by_type.get('HORSE', 0)}"))
-        layout.addWidget(QLabel(f"    Deaths: {global_stats.total_animals_died_by_type.get('HORSE', 0)}"))
-        layout.addWidget(QLabel("    Drops : None"))
+            production_label = production_labels.get(animal_type, "Drops")
+            production_count = global_stats.total_animals_production_by_type.get(animal_type.name, 0)
+            if animal_type in (AnimalType.HORSE, AnimalType.UNICORN):
+                layout.addWidget(QLabel(f"    {production_label}: None"))
+            else:
+                layout.addWidget(QLabel(f"    {production_label}: {production_count}"))
 
 
 

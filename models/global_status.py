@@ -1,4 +1,12 @@
 from ..constants import INITIAL_MONEY
+from .animal_type import TRACKED_ANIMAL_TYPES
+
+
+def _default_animal_type_totals():
+    return {
+        animal_type.name: 0
+        for animal_type in TRACKED_ANIMAL_TYPES
+    }
 
 
 class GlobalStats:
@@ -15,25 +23,9 @@ class GlobalStats:
         self.total_production_of_cow = 0
 
         # 動物タイプごとの統計を追加
-        self.total_animals_sold_by_type = {
-            'PIG': 0,
-            'CHICKEN': 0,
-            'COW': 0,
-            'HORSE': 0
-        }
-        self.total_animals_died_by_type = {
-            'PIG': 0,
-            'CHICKEN': 0,
-            'COW': 0,
-            'HORSE': 0
-        }
-
-        self.total_animals_production_by_type = {
-            'PIG': 0,
-            'CHICKEN': 0,
-            'COW': 0,
-            'HORSE': 0
-        }
+        self.total_animals_sold_by_type = _default_animal_type_totals()
+        self.total_animals_died_by_type = _default_animal_type_totals()
+        self.total_animals_production_by_type = _default_animal_type_totals()
 
     def update_money_record(self, current_money: int):
         self.highest_money = max(self.highest_money, current_money)
@@ -62,7 +54,7 @@ class GlobalStats:
     @classmethod
     def from_dict(cls, data: dict):
         stats = cls()
-        default_by_type = {'PIG': 0, 'CHICKEN': 0, 'COW': 0, 'HORSE': 0}
+        default_by_type = _default_animal_type_totals()
         stats.total_animals_sold = data.get("total_animals_sold", 0)
         stats.total_animals_dead = data.get("total_animals_dead", 0)
         stats.total_money_earned = data.get("total_money_earned", 0)

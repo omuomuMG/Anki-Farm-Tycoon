@@ -19,6 +19,7 @@ class Employee:
         self.can_buy_pig = True
         self.can_buy_cow = True
         self.can_buy_horse = True
+        self.can_buy_sheep = True
         self.buy_randomly = True
 
     @staticmethod
@@ -57,6 +58,9 @@ class Employee:
         horse = save_data["breeds"].get(
             "HORSE", {"level": 0, "is_unlocked": False}
         )
+        sheep = save_data["breeds"].get(
+            "SHEEP", {"level": 0, "is_unlocked": False}
+        )
 
         if self.buy_randomly:
             choices = []
@@ -70,6 +74,9 @@ class Employee:
 
             if horse["is_unlocked"]:
                 choices.append(AnimalType.HORSE)
+
+            if sheep["is_unlocked"]:
+                choices.append(AnimalType.SHEEP)
 
             import time
             random.seed(int(time.time()))
@@ -91,17 +98,21 @@ class Employee:
         if self.can_buy_horse and horse["is_unlocked"]:
             return AnimalType.HORSE
 
+        if self.can_buy_sheep and sheep["is_unlocked"]:
+            return AnimalType.SHEEP
+
         if self.can_buy_chicken:
             return AnimalType.CHICKEN
 
         return AnimalType.CHICKEN
 
-    def update_buying_preferences(self, chicken: bool, pig: bool, cow: bool, horse: bool = False):
+    def update_buying_preferences(self, chicken: bool, pig: bool, cow: bool, horse: bool = False, sheep: bool = False):
         """Update which animals this employee can buy"""
         self.can_buy_chicken = chicken
         self.can_buy_pig = pig
         self.can_buy_cow = cow
         self.can_buy_horse = horse
+        self.can_buy_sheep = sheep
 
         # Save the updated preferences
         self.save_preferences()
@@ -121,6 +132,7 @@ class Employee:
                 "can_buy_pig": self.can_buy_pig,
                 "can_buy_cow": self.can_buy_cow,
                 "can_buy_horse": self.can_buy_horse,
+                "can_buy_sheep": self.can_buy_sheep,
                 "buy_randomly": self.buy_randomly
             })
         else:
@@ -136,6 +148,7 @@ class Employee:
                 "can_buy_pig": self.can_buy_pig,
                 "can_buy_cow": self.can_buy_cow,
                 "can_buy_horse": self.can_buy_horse,
+                "can_buy_sheep": self.can_buy_sheep,
                 "buy_randomly": self.buy_randomly
             }
 
@@ -165,11 +178,13 @@ class Employee:
                 self.can_buy_pig = emp_data.get("can_buy_pig", False)
                 self.can_buy_cow = emp_data.get("can_buy_cow", False)
                 self.can_buy_horse = emp_data.get("can_buy_horse", False)
+                self.can_buy_sheep = emp_data.get("can_buy_sheep", False)
             else:
                 self.can_buy_chicken = False
                 self.can_buy_pig = False
                 self.can_buy_cow = False
                 self.can_buy_horse = False
+                self.can_buy_sheep = False
 
 
 __all__ = ["Employee"]

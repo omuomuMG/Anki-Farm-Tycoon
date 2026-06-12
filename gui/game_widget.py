@@ -16,7 +16,7 @@ from .statistics_window import StatisticsWindow
 from .settings_window import SettingsWindow
 from ..models.global_status import GlobalStats
 from ..models.animal import Animal
-from ..models.animal_type import AnimalType
+from ..models.animal_type import AnimalType, PURCHASABLE_ANIMAL_TYPES, TRACKED_ANIMAL_TYPES
 from ..models.field import Field
 from ..utils.resource_manager import ResourceManager
 from ..utils.save_manager import SaveManager
@@ -24,7 +24,10 @@ from ..gui.paint_handler import PaintHandler
 from .leaderboard import LeaderBoardWindow, get_user_data, update_user_data
 from ..constants import (
     INITIAL_CELL_SIZE, STATS_PANEL_WIDTH, GRID_SIZE,
-    INITIAL_MONEY, BASE_FIELD_PRICE, FIELD_PRICE_MULTIPLIER, ADDON_DIR, VERSION
+    INITIAL_MONEY, BASE_FIELD_PRICE, FIELD_PRICE_MULTIPLIER, ADDON_DIR, VERSION,
+    RANDOM_EVENT_CHANCE, RANDOM_EVENT_RAIN_BOOST,
+    RANDOM_EVENT_EPIDEMIC_LOSS, RANDOM_EVENT_HARVEST_BONUS,
+    UNICORN_EASY_STREAK_REQUIRED, UNICORN_COOLDOWN_CARDS,
 )
 from pathlib import Path
 
@@ -35,6 +38,20 @@ MIN_CELL_SIZE = 60
 
 
 class GameWidget(BaseWidget):
+    @staticmethod
+    def _create_default_stats():
+        return {
+            animal_type: {"sold": 0, "dead": 0}
+            for animal_type in TRACKED_ANIMAL_TYPES
+        }
+
+    @staticmethod
+    def _create_default_breeds():
+        return {
+            animal_type: AnimalBreed(animal_type)
+            for animal_type in PURCHASABLE_ANIMAL_TYPES
+        }
+
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -55,12 +72,14 @@ class GameWidget(BaseWidget):
         )
 
 
-        self.breeds = {
-            AnimalType.PIG: AnimalBreed(AnimalType.PIG),
-            AnimalType.CHICKEN: AnimalBreed(AnimalType.CHICKEN),
-            AnimalType.COW: AnimalBreed(AnimalType.COW),
-            AnimalType.HORSE: AnimalBreed(AnimalType.HORSE)
-        }
+        self.breeds = self._create_default_breeds()
+
+        # --- New mechanics state ---
+        self.easy_streak = 0                  # consecutive "Easy" cards
+        self.unicorn_cooldown = 0             # cards remaining before unicorn can spawn
+        self.unicorn_summoned_for_streak = False
+        self.fair_active = False              # next sale is worth 2x (random event)
+        self.active_event_message = None      # shown to player when event fires
 
         self.employees = {}
         self.load_game()
@@ -83,8 +102,6 @@ class GameWidget(BaseWidget):
 
         self.last_unlock_click_time = 0
         self.double_click_threshold = 500
-
-        
 
     def unregister_reviewer_hook(self):
         if not getattr(self, "_reviewer_hook_registered", False):
@@ -444,6 +461,16 @@ class GameWidget(BaseWidget):
             return self.fields[employee.y][employee.x]
         return None
 
+    def calculate_sale_price(self, animal):
+        price = animal.get_sale_price(fair_active=self.fair_active)
+        if animal.animal_type == AnimalType.UNICORN and self.easy_streak > 0:
+            price = int(price * (1 + self.easy_streak * 0.1))
+        return price
+
+    def consume_sale_modifiers(self):
+        if self.fair_active:
+            self.fair_active = False
+
     def update_employees(self):
         for employee in self.employees.values():
             if not employee.enabled:
@@ -462,7 +489,8 @@ class GameWidget(BaseWidget):
 
             # if animal does exit field
             elif field.animal and employee.should_sell_animal(field.animal):
-                price = field.animal.get_sale_price()
+                price = self.calculate_sale_price(field.animal)
+                self.consume_sale_modifiers()
                 salary = int(price * employee.get_salary_rate())
                 self.money += (price - salary)
                 employee.total_earnings += price
@@ -492,6 +520,7 @@ class GameWidget(BaseWidget):
         employee.can_buy_pig = False
         employee.can_buy_cow = False
         employee.can_buy_horse = False
+        employee.can_buy_sheep = False
         
         # Add to employees dictionary
         self.employees[name] = employee
@@ -553,26 +582,17 @@ class GameWidget(BaseWidget):
 
         self.unlocked_fields = 1
 
-        self.stats = {
-            AnimalType.PIG: {"sold": 0, "dead": 0},
-            AnimalType.CHICKEN: {"sold": 0, "dead": 0},
-            AnimalType.COW: {"sold": 0, "dead": 0},
-            AnimalType.HORSE: {"sold": 0, "dead": 0}
-        }
+        self.stats = self._create_default_stats()
 
         self.employees={}
 
-        self.breeds = {
-            AnimalType.PIG: AnimalBreed(AnimalType.PIG),
-            AnimalType.CHICKEN: AnimalBreed(AnimalType.CHICKEN),
-            AnimalType.COW: AnimalBreed(AnimalType.COW),
-            AnimalType.HORSE: AnimalBreed(AnimalType.HORSE)
-        }
+        self.breeds = self._create_default_breeds()
 
         self.breeds[AnimalType.CHICKEN].is_unlocked = True
         self.breeds[AnimalType.PIG].is_unlocked = False
         self.breeds[AnimalType.COW].is_unlocked = False
         self.breeds[AnimalType.HORSE].is_unlocked = False
+        self.breeds[AnimalType.SHEEP].is_unlocked = False
 
         for breed in self.breeds.values():
             breed.level = 0
@@ -591,14 +611,27 @@ class GameWidget(BaseWidget):
     def load_saved_game(self, save_data):
         self.money = save_data["money"]
         self.unlocked_fields = save_data["unlocked_fields"]
+        self.easy_streak = save_data.get("easy_streak", 0)
+        self.unicorn_cooldown = save_data.get("unicorn_cooldown", 0)
+        self.unicorn_summoned_for_streak = save_data.get("unicorn_summoned_for_streak", False)
+        self.fair_active = save_data.get("fair_active", False)
 
         # Load statistics
         self.stats = {}
-        for animal_type in AnimalType:
-            if animal_type != AnimalType.EMPTY:
-                self.stats[animal_type] = save_data["stats"].get(
-                    animal_type.name, {"sold": 0, "dead": 0}
-                )
+        saved_stats = save_data.get("stats", {})
+        for animal_type in TRACKED_ANIMAL_TYPES:
+            self.stats[animal_type] = saved_stats.get(
+                animal_type.name, {"sold": 0, "dead": 0}
+            )
+
+        breeds_data = save_data.get("breeds", {})
+        for animal_type in PURCHASABLE_ANIMAL_TYPES:
+            breed_data = breeds_data.get(animal_type.name, {})
+            self.breeds[animal_type].level = breed_data.get("level", 0)
+            self.breeds[animal_type].is_unlocked = breed_data.get(
+                "is_unlocked",
+                animal_type == AnimalType.CHICKEN
+            )
 
         # Load fields
         self.fields = []
@@ -614,27 +647,20 @@ class GameWidget(BaseWidget):
                     animal_data = field_data.get("animal")
                     if animal_data:
                         animal_type = AnimalType[animal_data["type"]]
-                        breed_level = self.breeds[animal_type].level
+                        breed = self.breeds.get(animal_type)
+                        breed_level = breed.level if breed else 0
                         animal = Animal(animal_type, breed_level=breed_level)
                         animal.growth = animal_data["growth"]
                         animal.is_dead = animal_data["is_dead"]
+                        animal.death_processed = animal_data.get("death_processed", False)
                         animal.has_product = animal_data["has_product"]
                         animal.max_growth = animal_data["max_growth"]
+                        animal.again_count = animal_data.get("again_count", 0)
                         field.animal = animal
                 else:
                     field = Field(x, y)
                 row.append(field)
             self.fields.append(row)
-
-        breeds_data = save_data.get("breeds", {})
-        for animal_type in AnimalType:
-            if animal_type != AnimalType.EMPTY:
-                breed_data = breeds_data.get(animal_type.name, {})
-                self.breeds[animal_type].level = breed_data.get("level", 0)
-                self.breeds[animal_type].is_unlocked = breed_data.get(
-                    "is_unlocked",
-                    animal_type == AnimalType.CHICKEN
-                )
 
         self.employees = {}
         employees_data = save_data.get("employees", {})
@@ -677,6 +703,10 @@ class GameWidget(BaseWidget):
             "money": self.money,
             "previous_money": previous_money,
             "unlocked_fields": self.unlocked_fields,
+            "easy_streak": getattr(self, "easy_streak", 0),
+            "unicorn_cooldown": getattr(self, "unicorn_cooldown", 0),
+            "unicorn_summoned_for_streak": getattr(self, "unicorn_summoned_for_streak", False),
+            "fair_active": getattr(self, "fair_active", False),
             "stats": {
                 animal_type.name: stats
                 for animal_type, stats in self.stats.items()
@@ -690,8 +720,10 @@ class GameWidget(BaseWidget):
                             "type": field.animal.animal_type.name,
                             "growth": field.animal.growth,
                             "is_dead": field.animal.is_dead,
+                            "death_processed": getattr(field.animal, "death_processed", False),
                             "has_product": field.animal.has_product,
-                            "max_growth": field.animal.max_growth
+                            "max_growth": field.animal.max_growth,
+                            "again_count": getattr(field.animal, "again_count", 0),
                         } if field.animal else None
                     }
                     for field in row
@@ -704,7 +736,6 @@ class GameWidget(BaseWidget):
                     "is_unlocked": breed.is_unlocked
                 }
                 for animal_type, breed in self.breeds.items()
-                if animal_type != AnimalType.EMPTY
             },
             "employees": {}
         }
@@ -756,6 +787,11 @@ class GameWidget(BaseWidget):
                     employee_data["can_buy_horse"] = existing_emp["can_buy_horse"]
                 else:
                     employee_data["can_buy_horse"] = getattr(employee, "can_buy_horse", False)
+
+                if "can_buy_sheep" in existing_emp:
+                    employee_data["can_buy_sheep"] = existing_emp["can_buy_sheep"]
+                else:
+                    employee_data["can_buy_sheep"] = getattr(employee, "can_buy_sheep", False)
             else:
                 # if the employee is new, set default values
                 employee_data["buy_randomly"] = getattr(employee, "buy_randomly", True)
@@ -763,6 +799,7 @@ class GameWidget(BaseWidget):
                 employee_data["can_buy_pig"] = getattr(employee, "can_buy_pig", False)
                 employee_data["can_buy_cow"] = getattr(employee, "can_buy_cow", False)
                 employee_data["can_buy_horse"] = getattr(employee, "can_buy_horse", False)
+                employee_data["can_buy_sheep"] = getattr(employee, "can_buy_sheep", False)
                 
         
             game_state["employees"][emp_name] = employee_data
@@ -772,16 +809,15 @@ class GameWidget(BaseWidget):
 
     def show_animal_selection_dialog(self):
         menu = QMenu(self)
-        for animal_type in AnimalType:
-            if animal_type != AnimalType.EMPTY:
-                if self.breeds[animal_type].is_unlocked:
-                    action = menu.addAction(
-                        f"{animal_type.emoji} {animal_type.label} ({animal_type.price} coins)")
-                    action.setData(animal_type)
-                else:
-                    action = menu.addAction(
-                        f"{animal_type.emoji} {animal_type.label} (Locked)")
-                    action.setEnabled(False)
+        for animal_type in PURCHASABLE_ANIMAL_TYPES:
+            if self.breeds[animal_type].is_unlocked:
+                action = menu.addAction(
+                    f"{animal_type.emoji} {animal_type.label} ({animal_type.price} coins)")
+                action.setData(animal_type)
+            else:
+                action = menu.addAction(
+                    f"{animal_type.emoji} {animal_type.label} (Locked)")
+                action.setEnabled(False)
 
         action = menu.exec(QCursor.pos())
         return action.data() if action else None
@@ -890,8 +926,7 @@ class GameWidget(BaseWidget):
     
 
     def check_game_over(self):
-        if self.money < min(animal_type.price for animal_type in AnimalType
-                          if animal_type != AnimalType.EMPTY):
+        if self.money < min(animal_type.price for animal_type in PURCHASABLE_ANIMAL_TYPES):
             has_living_animals = any(
                 field.animal and not field.animal.is_dead
                 for row in self.fields
@@ -940,26 +975,23 @@ class GameWidget(BaseWidget):
             self.unlocked_fields = 1
             
             # Reset statistics
-            self.stats = {
-                AnimalType.PIG: {"sold": 0, "dead": 0},
-                AnimalType.CHICKEN: {"sold": 0, "dead": 0},
-                AnimalType.COW: {"sold": 0, "dead": 0},
-                AnimalType.HORSE: {"sold": 0, "dead": 0}
-            }
+            self.stats = self._create_default_stats()
             
             self.employees = {}
             
             # Reset breeds
-            self.breeds = {
-                AnimalType.PIG: AnimalBreed(AnimalType.PIG),
-                AnimalType.CHICKEN: AnimalBreed(AnimalType.CHICKEN),
-                AnimalType.COW: AnimalBreed(AnimalType.COW),
-                AnimalType.HORSE: AnimalBreed(AnimalType.HORSE)
-            }
+            self.breeds = self._create_default_breeds()
             self.breeds[AnimalType.CHICKEN].is_unlocked = True
             self.breeds[AnimalType.PIG].is_unlocked = False
             self.breeds[AnimalType.COW].is_unlocked = False
             self.breeds[AnimalType.HORSE].is_unlocked = False
+            self.breeds[AnimalType.SHEEP].is_unlocked = False
+
+            # Reset new mechanics state
+            self.easy_streak = 0
+            self.unicorn_cooldown = 0
+            self.unicorn_summoned_for_streak = False
+            self.fair_active = False
             
             for breed in self.breeds.values():
                 breed.level = 0
@@ -982,6 +1014,10 @@ class GameWidget(BaseWidget):
                 "money": self.money,
                 "previous_money": self.previous_money,
                 "unlocked_fields": self.unlocked_fields,
+                "easy_streak": self.easy_streak,
+                "unicorn_cooldown": self.unicorn_cooldown,
+                "unicorn_summoned_for_streak": self.unicorn_summoned_for_streak,
+                "fair_active": self.fair_active,
                 "stats": {
                     animal_type.name: stats
                     for animal_type, stats in self.stats.items()
@@ -1003,7 +1039,6 @@ class GameWidget(BaseWidget):
                         "is_unlocked": breed.is_unlocked
                     }
                     for animal_type, breed in self.breeds.items()
-                    if animal_type != AnimalType.EMPTY
                 },
                 "employees": {}  
             }
@@ -1150,37 +1185,27 @@ class GameWidget(BaseWidget):
         if not field.animal:
             return
         
-        # Get sale price using existing Animal class methods
         animal = field.animal
         
-        # Check if animal can be sold (using existing can_sell() method)
         if not animal.can_sell():
-            # Show message explaining why animal cannot be sold
             self.show_cannot_sell_message(animal)
             return
         
-        # Use existing get_sale_price() method
-        sell_price = animal.get_sale_price()
-        
-        # Get animal name (for display)
+        sell_price = self.calculate_sale_price(animal)
+        self.consume_sale_modifiers()
+
         animal_name = animal.animal_type.label
         
-        # Remove animal and add money
         field.remove_animal()
         self.money += sell_price
-        
-        # Save game
-        self.save_game()
-        
-        # Show sale message at top of screen (optional)
+
         self.show_sale_message(animal_name, sell_price)
 
         self.stats[animal.animal_type]["sold"] += 1
         self.global_stats.total_animals_sold += 1
         self.global_stats.total_money_earned += sell_price
-        self.global_stats.total_animals_sold_by_type[animal_name.upper()] += 1
+        self.global_stats.total_animals_sold_by_type[animal.animal_type.name] += 1
 
-        field.remove_animal()
         self.save_game()
         self.save_global_stats()
         
@@ -1243,7 +1268,7 @@ class GameWidget(BaseWidget):
         QTimer.singleShot(2500, clear_message)  # Auto-hide after 2.5 seconds
 
 
-    def show_sale_message(self, animal_name, price):
+    def show_sale_message(self, animal_name, price=None):
         """Display sale message temporarily"""
         # PyQt imports required (add to top of file)
         from PyQt6.QtCore import QTimer
@@ -1258,8 +1283,14 @@ class GameWidget(BaseWidget):
                 pass  # Object already deleted
             self.sale_message_label = None
         
+        message = (
+            f"{animal_name} sold for {price} coins!"
+            if price is not None
+            else animal_name
+        )
+
         # Create new message label
-        self.sale_message_label = QLabel(f"{animal_name} sold for {price} coins!", self)
+        self.sale_message_label = QLabel(message, self)
         self.sale_message_label.setStyleSheet("""
             QLabel {
                 background-color: #cb6838;
@@ -1273,9 +1304,10 @@ class GameWidget(BaseWidget):
         self.sale_message_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         # Position message at center top of screen
-        self.sale_message_label.resize(300, 40)
+        message_width = max(300, min(620, len(message) * 8))
+        self.sale_message_label.resize(message_width, 40)
         self.sale_message_label.move(
-            (self.width() - 300) // 2,
+            (self.width() - message_width) // 2,
             50
         )
         self.sale_message_label.show()
@@ -1293,6 +1325,62 @@ class GameWidget(BaseWidget):
 
     def called(self, reviewer, card, ease):
         """Handle Anki card review events"""
+        # ease: 1=Again, 2=Hard, 3=Good, 4=Easy
+
+        # --- Unicorn: easy streak tracking ---
+        if ease == 4:
+            self.easy_streak += 1
+        else:
+            self.easy_streak = 0
+            self.unicorn_summoned_for_streak = False
+
+        if self.unicorn_cooldown > 0:
+            self.unicorn_cooldown -= 1
+
+        # --- Sheep: count "Again" cards during this animal's life ---
+        if ease == 1:
+            for row in self.fields:
+                for field in row:
+                    if field.animal and field.animal.animal_type == AnimalType.SHEEP and not field.animal.is_dead:
+                        field.animal.again_count += 1
+
+        # --- Random events (2% chance per card) ---
+        event_message = None
+        if random.random() < RANDOM_EVENT_CHANCE:
+            all_alive = [
+                field for row in self.fields for field in row
+                if field.animal and not field.animal.is_dead
+            ]
+            event_roll = random.randint(0, 3)
+
+            if event_roll == 0:
+                self.fair_active = True
+                event_message = "🎪 Feira do campo! Proxima venda vale 2x!"
+
+            elif event_roll == 1 and all_alive:
+                for field in all_alive:
+                    field.animal.growth = min(
+                        field.animal.growth + RANDOM_EVENT_RAIN_BOOST,
+                        field.animal.max_growth
+                    )
+                    if field.animal.growth >= field.animal.max_growth:
+                        field.animal.is_dead = True
+                event_message = "🌧️ Chuva de verao! Todos os animais cresceram +5%!"
+
+            elif event_roll == 2 and all_alive:
+                target = random.choice(all_alive)
+                target.animal.growth = max(0, target.animal.growth - RANDOM_EVENT_EPIDEMIC_LOSS)
+                event_message = f"🦠 Epidemia leve! {target.animal.animal_type.emoji} perdeu 10% de crescimento!"
+
+            elif event_roll == 3:
+                self.money += RANDOM_EVENT_HARVEST_BONUS
+                self.global_stats.total_money_earned += RANDOM_EVENT_HARVEST_BONUS
+                event_message = f"🌾 Colheita abundante! +{RANDOM_EVENT_HARVEST_BONUS} moedas!"
+
+        if event_message:
+            self.show_sale_message(event_message)
+
+        # --- Pig boost ---
         pig_products = []
         for row in self.fields:
             for field in row:
@@ -1317,6 +1405,12 @@ class GameWidget(BaseWidget):
                 target_field.animal.growth_boost = boost_amount
                 boosted_animals.append((target_field, boost_amount))
 
+        # --- Check cow presence for chicken synergy ---
+        has_cow = any(
+            field.animal and field.animal.animal_type == AnimalType.COW and not field.animal.is_dead
+            for row in self.fields for field in row
+        )
+
         total_production = 0
         for row in self.fields:
             for field in row:
@@ -1327,31 +1421,53 @@ class GameWidget(BaseWidget):
                     field.animal.grow()
                     print(f"Animal growth: {field.animal.growth}%")
 
-
                     field.animal.has_product = False
-                    production = field.animal.produce()
+                    production = field.animal.produce(has_cow_nearby=has_cow)
                     if production > 0:
                         total_production += production
                         self.global_stats.total_animals_production_by_type[field.animal.animal_type.name] += 1
 
-                    elif field.animal.is_dead:
-                        remove_probability = random.randint(0,15)
+                    if field.animal.is_dead and not getattr(field.animal, "death_processed", False):
+                        if field.animal.animal_type == AnimalType.UNICORN:
+                            self.unicorn_cooldown = UNICORN_COOLDOWN_CARDS
+                            self.easy_streak = 0
+                            self.unicorn_summoned_for_streak = False
+                        field.animal.death_processed = True
+
+                    if field.animal.is_dead:
+                        remove_probability = random.randint(0, 15)
                         if remove_probability == 0:
-                            # Write to _anki_farm_tycoon_save.json. # Issue 19
                             self.stats[field.animal.animal_type]["dead"] += 1
-                            # Copy to anki_farm_tycoon_global_stats.json.
                             self.global_stats.total_animals_died_by_type[field.animal.animal_type.name] = self.stats[field.animal.animal_type]["dead"]
                             field.remove_animal()
-
 
         if total_production > 0:
             self.money += total_production
             self.global_stats.total_money_earned += total_production
 
-        bonus_earning = random.randint(0,2)
-
+        bonus_earning = random.randint(0, 2)
         self.money += bonus_earning
         self.global_stats.total_money_earned += bonus_earning
+
+        # --- Unicorn summoning ---
+        if (self.easy_streak >= UNICORN_EASY_STREAK_REQUIRED
+                and self.unicorn_cooldown == 0
+                and not self.unicorn_summoned_for_streak):
+            field_count = 0
+            unlocked_empty = []
+            for row in self.fields:
+                for field in row:
+                    field_count += 1
+                    if field_count <= self.unlocked_fields and field.animal is None:
+                        unlocked_empty.append(field)
+            if unlocked_empty:
+                chosen = random.choice(unlocked_empty)
+                unicorn = Animal(AnimalType.UNICORN)
+                chosen.add_animal(unicorn)
+                self.unicorn_summoned_for_streak = True
+                self.show_sale_message(
+                    f"🦄 Um Unicornio apareceu! (streak de {self.easy_streak} Easy)"
+                )
 
         self.global_stats.update_money_record(self.money)
         self.global_stats.update_day_count()
