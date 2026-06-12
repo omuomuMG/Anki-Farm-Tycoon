@@ -1,0 +1,265 @@
+diff --git a/gui/employee_management_window.py b/gui/employee_management_window.py
+index e090fd0..9a48377 100644
+--- a/gui/employee_management_window.py
++++ b/gui/employee_management_window.py
+@@ -5,7 +5,7 @@ from PyQt6.QtCore import Qt
+ 
+ from ..constants import GRID_SIZE
+ from .base_window import BaseWindow
+-from ..models.employee import Employee
++from ..models.employee import Employee, Volunteer
+ 
+ 
+ class EmployeeManagementWindow(BaseWindow):
+@@ -82,17 +82,25 @@ class EmployeeManagementWindow(BaseWindow):
+                 employee = emp
+                 break
+ 
+-        if employee:  # 既存の従業員の場合
+-            header = QLabel(f"👨‍💼 Employee {employee.name}")
++        if employee:  # existing worker
++            is_vol = isinstance(employee, Volunteer)
++            worker_label = "🤝 Volunteer" if is_vol else "👨‍💼 Employee"
++            header = QLabel(f"{worker_label} {employee.name}")
+             header.setStyleSheet("font-size: 14px; font-weight: bold; color: #2c3e50;")
+             layout.addWidget(header)
+ 
++            if is_vol:
++                badge = QLabel("✅ No commission · Sells at 80%+")
++                badge.setStyleSheet("font-size: 11px; color: #27ae60; margin-bottom: 4px;")
++                layout.addWidget(badge)
++
+             info_layout = QGridLayout()
+             level_text = QLabel(f"Level: {employee.level}/{employee.max_level}")
+             level_text.setStyleSheet("font-weight: bold; color: #2c3e50;")
+             info_layout.addWidget(level_text)
+ 
+-            salary_rate_text = QLabel(f"Salary Rate: {employee.get_salary_rate() * 100:.1f}%")
++            salary_label = "Salary Rate: 0% (volunteer)" if is_vol else f"Salary Rate: {employee.get_salary_rate() * 100:.1f}%"
++            salary_rate_text = QLabel(salary_label)
+             salary_rate_text.setStyleSheet("font-weight: bold; color: #2c3e50;")
+             info_layout.addWidget(salary_rate_text)
+ 
+@@ -202,7 +210,7 @@ class EmployeeManagementWindow(BaseWindow):
+ 
+             button_layout = QHBoxLayout()
+ 
+-            if employee.level < employee.max_level:
++            if not isinstance(employee, Volunteer) and employee.level < employee.max_level:
+                 upgrade_btn = QPushButton(f"Upgrade ({employee.get_upgrade_cost()} coins)")
+                 upgrade_btn.setStyleSheet("""
+                     QPushButton {
+@@ -245,13 +253,13 @@ class EmployeeManagementWindow(BaseWindow):
+ 
+         else:
+             hire_cost = Employee.calculate_hire_cost(x, y)
++            volunteer_cost = Volunteer.calculate_hire_cost(x, y)
+             field_number = y * GRID_SIZE + x + 1
+             header = QLabel(f"📍 Position {chr(64 + field_number)}({x + 1}, {y + 1})")
+             header.setStyleSheet("font-size: 14px; font-weight: bold; color: #2c3e50;")
+             layout.addWidget(header)
+ 
+             hire_btn = QPushButton(f"Hire Employee ({hire_cost} coins)")
+-
+             hire_btn.setStyleSheet("""
+                 QPushButton {
+                     background-color: #3498db;
+@@ -270,6 +278,25 @@ class EmployeeManagementWindow(BaseWindow):
+             )
+             layout.addWidget(hire_btn)
+ 
++            volunteer_btn = QPushButton(f"🤝 Hire Volunteer ({volunteer_cost} coins) — no commission")
++            volunteer_btn.setStyleSheet("""
++                QPushButton {
++                    background-color: #27ae60;
++                    color: white;
++                    border: none;
++                    padding: 5px;
++                    border-radius: 3px;
++                }
++                QPushButton:hover {
++                    background-color: #1e8449;
++                }
++            """)
++            self.register_button(
++                volunteer_btn,
++                lambda x=x, y=y: self.handle_hire_volunteer(x, y)
++            )
++            layout.addWidget(volunteer_btn)
++
+         frame.setLayout(layout)
+         return frame
+ 
+@@ -328,17 +355,13 @@ class EmployeeManagementWindow(BaseWindow):
+             if self.parent.hire_employee(x, y):
+                 self.parent.money -= hire_cost
+                 
+-                # Find the newly hired employee
+                 for emp in self.parent.employees.values():
+                     if emp.x == x and emp.y == y:
+-                        # Set default animal buying preferences (default to chicken)
+                         emp.can_buy_chicken = True
+                         emp.can_buy_pig = False
+                         emp.can_buy_cow = False
+                         emp.can_buy_horse = False
+                         emp.can_buy_sheep = False
+-                        
+-                        # Save preferences explicitly
+                         emp.save_preferences()
+                         break
+                         
+@@ -357,6 +380,34 @@ class EmployeeManagementWindow(BaseWindow):
+                 f"Not enough money!\nRequired: {hire_cost} coins"
+             )
+ 
++    def handle_hire_volunteer(self, x: int, y: int):
++        hire_cost = Volunteer.calculate_hire_cost(x, y)
++        if self.parent.money >= hire_cost:
++            if self.parent.hire_volunteer(x, y):
++                self.parent.money -= hire_cost
++
++                for emp in self.parent.employees.values():
++                    if emp.x == x and emp.y == y:
++                        emp.can_buy_chicken = True
++                        emp.save_preferences()
++                        break
++
++                self.parent.save_game()
++                self.update_display()
++
++                QMessageBox.information(
++                    self,
++                    "Volunteer Hired!",
++                    f"A volunteer has joined position ({x + 1}, {y + 1})!\n"
++                    f"They work for free but only sell animals at 80%+ growth."
++                )
++        else:
++            QMessageBox.warning(
++                self,
++                "Cannot Hire",
++                f"Not enough money!\nRequired: {hire_cost} coins"
++            )
++
+     def handle_toggle(self, employee):
+         employee.enabled = not employee.enabled
+         self.parent.save_game()
+diff --git a/gui/game_widget.py b/gui/game_widget.py
+index 7088fe1..16c2371 100644
+--- a/gui/game_widget.py
++++ b/gui/game_widget.py
+@@ -9,7 +9,7 @@ from PyQt6.QtGui import QPainter, QColor, QCursor, QFont, QDesktopServices
+ from aqt import gui_hooks, mw
+ 
+ from .employee_management_window import EmployeeManagementWindow
+-from ..models.employee import Employee
++from ..models.employee import Employee, Volunteer
+ from .animal_breed import AnimalBreed
+ from .shop_window import ShopWindow
+ from .statistics_window import StatisticsWindow
+@@ -531,7 +531,29 @@ class GameWidget(BaseWidget):
+         self.update()
+         return True
+ 
+-    def upgrade_employee(self, employee: Employee):
++    def hire_volunteer(self, x: int, y: int) -> bool:
++        """Hire a zero-commission Volunteer for a one-time higher cost."""
++        for emp in self.employees.values():
++            if emp.x == x and emp.y == y:
++                return False
++        field_number = y * GRID_SIZE + x
++        name = chr(65 + field_number)
++        volunteer = Volunteer(name=name, x=x, y=y)
++
++        volunteer.buy_randomly = True
++        volunteer.can_buy_chicken = False
++        volunteer.can_buy_pig = False
++        volunteer.can_buy_cow = False
++        volunteer.can_buy_horse = False
++        volunteer.can_buy_sheep = False
++
++        self.employees[name] = volunteer
++        volunteer.save_preferences()
++
++        self.update()
++        return True
++
++
+         """level up employee"""
+         if employee.level >= employee.max_level:
+             return False
+@@ -668,11 +690,18 @@ class GameWidget(BaseWidget):
+             x = emp_data.get("x", 0)
+             y = emp_data.get("y", 0)
+ 
+-            employee = Employee(
+-                name=emp_data["name"],
+-                x=x,
+-                y=y
+-            )
++            if emp_data.get("is_volunteer", False):
++                employee = Volunteer(
++                    name=emp_data["name"],
++                    x=x,
++                    y=y
++                )
++            else:
++                employee = Employee(
++                    name=emp_data["name"],
++                    x=x,
++                    y=y
++                )
+             employee.level = emp_data.get("level", 1)
+             employee.enabled = emp_data.get("enabled", True)
+             employee.total_earnings = emp_data.get("total_earnings", 0)
+@@ -754,7 +783,8 @@ class GameWidget(BaseWidget):
+                 "level": employee.level,
+                 "enabled": employee.enabled,
+                 "total_earnings": employee.total_earnings,
+-                "total_sales": employee.total_sales
++                "total_sales": employee.total_sales,
++                "is_volunteer": isinstance(employee, Volunteer),
+             }
+             
+             # if the employee already exists in the save data
+diff --git a/models/employee.py b/models/employee.py
+index 186a7a0..d28f516 100644
+--- a/models/employee.py
++++ b/models/employee.py
+@@ -187,4 +187,36 @@ class Employee:
+                 self.can_buy_sheep = False
+ 
+ 
+-__all__ = ["Employee"]
++__all__ = ["Employee", "Volunteer"]
++
++
++class Volunteer(Employee):
++    """
++    A zero-commission worker hired for a higher one-time cost.
++    Trade-off: only sells animals at 80%+ growth (less flexible than Employee).
++    Cannot be upgraded — no salary rate to reduce.
++    """
++
++    HIRE_COST_MULTIPLIER = 3  # costs 3x a regular employee to hire
++
++    def __init__(self, name: str, x: int, y: int):
++        super().__init__(name, x, y)
++        self.is_volunteer = True
++        self.max_level = 1  # no upgrades
++
++    @staticmethod
++    def calculate_hire_cost(x: int, y: int) -> int:
++        base = Employee.calculate_hire_cost(x, y)
++        # First slot would be 0*3=0, so enforce a minimum
++        return max(500, base * Volunteer.HIRE_COST_MULTIPLIER)
++
++    def get_salary_rate(self) -> float:
++        return 0.0  # never takes a cut
++
++    def get_upgrade_cost(self) -> int:
++        return 0  # cannot be upgraded
++
++    def should_sell_animal(self, animal) -> bool:
++        if not animal or animal.is_dead:
++            return False
++        return animal.growth >= 80  # stricter threshold — only sells mature animals
