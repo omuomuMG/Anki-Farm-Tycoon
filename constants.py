@@ -36,6 +36,28 @@ FIELD_PRICE_MULTIPLIER = 1.5
 
 VERSION = "1.6.0"
 
+# --- Sheep ---
+SHEEP_GROWTH_RANGE = (0, 2)
+SHEEP_PRODUCTION_CHANCE = 0.05
+SHEEP_BASE_PRICE = 500
+SHEEP_AGAIN_BONUS_PER_CARD = 0.05   # +5% sale price per "Again" answered this cycle
+
+# --- Chicken+Cow synergy ---
+CHICKEN_COW_SYNERGY_MULTIPLIER = 2   # egg value doubles when a cow is present
+
+# --- Random events ---
+RANDOM_EVENT_CHANCE = 0.02           # 2% per card
+RANDOM_EVENT_FAIR_MULTIPLIER = 2     # next sale worth 2x
+RANDOM_EVENT_RAIN_BOOST = 5          # all animals +5% growth
+RANDOM_EVENT_EPIDEMIC_LOSS = 10      # one random animal loses 10% growth
+RANDOM_EVENT_HARVEST_BONUS = 50      # instant +50 coins
+
+# --- Unicorn (legendary) ---
+UNICORN_EASY_STREAK_REQUIRED = 5     # consecutive "Easy" cards to summon
+UNICORN_GROWTH_RANGE = (0, 1)
+UNICORN_BASE_PRICE = 3000
+UNICORN_COOLDOWN_CARDS = 50          # cards to wait after unicorn dies
+
 # Animal render tuning (per animal x stage)
 # scale: Multiplier for base size
 # offset_x / offset_y: Pixel offset from centered position
@@ -53,6 +75,14 @@ ANIMAL_RENDER_SETTINGS = {
         "child": {"scale": 0.8, "offset_x": 0, "offset_y": 10},
     },
     "HORSE": {
+        "adult": {"scale": 1.0, "offset_x": 0, "offset_y": 0},
+        "child": {"scale": 0.9, "offset_x": 0, "offset_y": 10},
+    },
+    "SHEEP": {
+        "adult": {"scale": 1.0, "offset_x": 0, "offset_y": 0},
+        "child": {"scale": 0.8, "offset_x": 0, "offset_y": 10},
+    },
+    "UNICORN": {
         "adult": {"scale": 1.0, "offset_x": 0, "offset_y": 0},
         "child": {"scale": 0.9, "offset_x": 0, "offset_y": 10},
     },

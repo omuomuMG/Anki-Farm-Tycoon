@@ -2,7 +2,7 @@ from PyQt6.QtGui import QPainter, QColor
 from PyQt6.QtCore import Qt
 
 from ..utils.save_manager import SaveManager
-from ..models.animal_type import AnimalType
+from ..models.animal_type import AnimalType, TRACKED_ANIMAL_TYPES
 from ..constants import INITIAL_MONEY, ANIMAL_RENDER_SETTINGS
 
 
@@ -16,6 +16,22 @@ class PaintHandler:
             "offset_x": animal_config.get("offset_x", 0),
             "offset_y": animal_config.get("offset_y", 0),
         }
+
+    @staticmethod
+    def _draw_animal_emoji(painter: QPainter, animal_type: AnimalType, pos_x: int, pos_y: int, cell_size: int):
+        painter.save()
+        font = painter.font()
+        font.setPointSize(max(18, int(cell_size * 0.42)))
+        painter.setFont(font)
+        painter.drawText(
+            pos_x,
+            pos_y + max(0, cell_size // 12),
+            cell_size,
+            int(cell_size * 0.65),
+            Qt.AlignmentFlag.AlignCenter,
+            animal_type.emoji,
+        )
+        painter.restore()
 
     def draw_statistics(self, painter: QPainter, stats: dict, money: int, current_day: int):
         """Draw statistics panel"""
@@ -56,8 +72,8 @@ class PaintHandler:
 
         font.setBold(False)
         painter.setFont(font)
-        for animal_type in [AnimalType.PIG, AnimalType.CHICKEN, AnimalType.COW, AnimalType.HORSE]:
-            stat = stats[animal_type]
+        for animal_type in TRACKED_ANIMAL_TYPES:
+            stat = stats.get(animal_type, {"sold": 0, "dead": 0})
             text = f"{animal_type.emoji} {animal_type.label}: Sold: {stat['sold']}, Dead: {stat['dead']}"
             painter.drawText(10, y_pos, text)
             y_pos += 18
@@ -85,31 +101,34 @@ class PaintHandler:
             else:
                 # Draw living animal
                 animal_type = field.animal.animal_type
-                animal_image = images['animals'][animal_type]
+                animal_image = images.get('animals', {}).get(animal_type)
                 child_images = images.get('child_animals', {})
                 child_image = child_images.get(animal_type)
                 is_child = field.animal.growth < 50
                 if is_child and child_image and not child_image.isNull():
                     animal_image = child_image
 
-                render_config = self._get_animal_render_config(animal_type, is_child)
-                base_animal_size = min(cell_size - 20, animal_image.width(), animal_image.height())
-                animal_scale = max(0.1, float(render_config["scale"]))
-                animal_size = max(1, int(base_animal_size * animal_scale))
-                offset_x = int(render_config["offset_x"])
-                offset_y = int(render_config["offset_y"])
+                if animal_image and not animal_image.isNull():
+                    render_config = self._get_animal_render_config(animal_type, is_child)
+                    base_animal_size = min(cell_size - 20, animal_image.width(), animal_image.height())
+                    animal_scale = max(0.1, float(render_config["scale"]))
+                    animal_size = max(1, int(base_animal_size * animal_scale))
+                    offset_x = int(render_config["offset_x"])
+                    offset_y = int(render_config["offset_y"])
 
-                painter.drawPixmap(
-                    pos_x + (cell_size - animal_size) // 2 + offset_x,
-                    pos_y + (cell_size - animal_size) // 2 + offset_y,
-                    animal_size,
-                    animal_size,
-                    animal_image
-                )
+                    painter.drawPixmap(
+                        pos_x + (cell_size - animal_size) // 2 + offset_x,
+                        pos_y + (cell_size - animal_size) // 2 + offset_y,
+                        animal_size,
+                        animal_size,
+                        animal_image
+                    )
+                else:
+                    self._draw_animal_emoji(painter, animal_type, pos_x, pos_y, cell_size)
 
                 # Draw product if exists
-                if field.animal.has_product and field.animal.animal_type in [AnimalType.CHICKEN, AnimalType.COW, AnimalType.PIG]:
-                    product_image = images['products'][field.animal.animal_type]
+                product_image = images.get('products', {}).get(field.animal.animal_type)
+                if field.animal.has_product and product_image and not product_image.isNull():
                     product_size = min(cell_size // 4, product_image.width())
                     painter.drawPixmap(
                         pos_x + cell_size - product_size - 5,
