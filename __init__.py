@@ -93,15 +93,15 @@ def schedule_floating_game_dock_resize(dock):
     QTimer.singleShot(100, lambda: resize_floating_game_dock(dock))
 
 
-def create_game_dock_widget():
+def create_game_dock_widget(visible=True):
     """Create game widget as a dock widget attached to Anki main window"""
     delete_game_window()
 
     if hasattr(mw, 'anki_farm_dock'):
         dock = mw.anki_farm_dock
-        dock.setVisible(True)
-        set_game_action_checked(True)
-        if dock.isFloating():
+        dock.setVisible(visible)
+        set_game_action_checked(visible)
+        if visible and dock.isFloating():
             schedule_floating_game_dock_resize(dock)
         return dock
 
@@ -128,44 +128,48 @@ def create_game_dock_widget():
 
     # Add dock to main window (right side by default)
     mw.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
+    dock.setVisible(visible)
 
     # Store references for later access
     mw.anki_farm_dock = dock
     mw.anki_farm_widget = game_widget
-    set_game_action_checked(True)
+    set_game_action_checked(visible)
 
     return dock
 
 
-def create_game_window():
+def create_game_window(visible=True):
     settings = game_settings()
     if settings["dock_widget"]:
-        return create_game_dock_widget()
-    return create_standalone_game_window()
+        return create_game_dock_widget(visible=visible)
+    return create_standalone_game_window(visible=visible)
 
 
-def create_standalone_game_window():
+def create_standalone_game_window(visible=True):
     """Create game widget as an independent window."""
     delete_game_dock()
 
     if hasattr(mw, "anki_farm_window"):
         game_window = mw.anki_farm_window
-        game_window.show()
-        game_window.raise_()
-        game_window.activateWindow()
-        set_game_action_checked(True)
+        game_window.setVisible(visible)
+        if visible:
+            game_window.raise_()
+            game_window.activateWindow()
+        set_game_action_checked(visible)
         return game_window
 
     game_window = GameWidget(mw)
     game_window.setWindowFlags(Qt.WindowType.Window)
-    game_window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+    # Keep the game engine and reviewer hook alive when the player closes the
+    # window.  Explicit mode changes still destroy it via delete_game_window().
+    game_window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
     game_window.resize(game_window.sizeHint())
     game_window.destroyed.connect(lambda: clear_window_reference(game_window))
-    game_window.show()
 
     mw.anki_farm_window = game_window
     mw.anki_farm_widget = game_window
-    set_game_action_checked(True)
+    game_window.setVisible(visible)
+    set_game_action_checked(visible)
 
     return game_window
 
@@ -237,9 +241,9 @@ gui_hooks.sync_will_start.append(on_sync_complete)
 
 # ===== Auto-open game dock when Anki starts =====
 def on_anki_startup():
-    """Automatically create and show game dock after Anki fully initializes"""
-    if game_settings()["auto_start"]:
-        QTimer.singleShot(500, create_game_window)
+    """Initialize the game engine, showing its window only when requested."""
+    auto_start = game_settings()["auto_start"]
+    QTimer.singleShot(500, lambda: create_game_window(visible=auto_start))
 
 
 gui_hooks.main_window_did_init.append(on_anki_startup)

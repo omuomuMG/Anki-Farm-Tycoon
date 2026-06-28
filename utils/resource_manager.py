@@ -27,6 +27,16 @@ class ResourceManager:
         return QPixmap(str(path))
 
     @staticmethod
+    def _load_pixmap_candidates(filenames, fallback_emoji: str = "") -> QPixmap:
+        for filename in filenames:
+            path = RESOURCES_DIR / filename
+            if path.exists():
+                return QPixmap(str(path))
+        if fallback_emoji:
+            return ResourceManager._emoji_pixmap(fallback_emoji)
+        return QPixmap()
+
+    @staticmethod
     def load_all_resources():
         horse_path = RESOURCES_DIR / "horse.png"
         if not horse_path.exists():
@@ -52,7 +62,10 @@ class ResourceManager:
                 AnimalType.COW: QPixmap(str(RESOURCES_DIR / "child_cow.png")),
                 AnimalType.HORSE: QPixmap(str(RESOURCES_DIR / "child_horse.png")),
                 AnimalType.SHEEP: ResourceManager._load_pixmap("child_sheep.png", AnimalType.SHEEP.emoji),
-                AnimalType.UNICORN: ResourceManager._load_pixmap("child_unicorn.png", AnimalType.UNICORN.emoji),
+                AnimalType.UNICORN: ResourceManager._load_pixmap_candidates(
+                    ("child_unicorn.png", "unicorn.png"),
+                    AnimalType.UNICORN.emoji,
+                ),
             },
             'products': {
                 AnimalType.CHICKEN: QPixmap(str(RESOURCES_DIR / "egg.png")),

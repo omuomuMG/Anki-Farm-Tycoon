@@ -78,15 +78,7 @@ class Employee:
             if sheep["is_unlocked"]:
                 choices.append(AnimalType.SHEEP)
 
-            import time
-            random.seed(int(time.time()))
-
-            if len(choices) == 1:
-                choice = choices[0]
-            else:
-                index = random.randint(0, len(choices) - 1)
-                choice = choices[index]
-            return choice
+            return random.choice(choices)
 
         # if self.buy_randomly is False
         if self.can_buy_pig and pig["is_unlocked"]:

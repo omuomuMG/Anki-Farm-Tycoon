@@ -114,7 +114,10 @@ class GameWidget(BaseWidget):
         self._reviewer_hook_registered = False
 
     def closeEvent(self, event):
-        self.unregister_reviewer_hook()
+        # Closing the farm window only hides the UI.  The widget stays alive so
+        # reviews continue to advance the farm while the window is closed.
+        # The hook is removed when the widget is actually destroyed, or by the
+        # explicit display-mode cleanup helpers in the add-on entry point.
         super().closeEvent(event)
 
 
